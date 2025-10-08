@@ -3,6 +3,18 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use App\Services\OrderService;
+use App\Services\ProductionTaskService;
+use App\Services\CompanyService;
+use App\Services\ProductService;
+use App\Services\UserService;
+use App\Services\RoleService;
+use App\Models\Order;
+use App\Models\ProductionTask;
+use App\Models\Company;
+use App\Models\Product;
+use App\Models\User;
+use App\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -11,7 +23,29 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(OrderService::class, function ($app) {
+            return new OrderService($app->make(Order::class));
+        });
+
+        $this->app->bind(ProductionTaskService::class, function ($app) {
+            return new ProductionTaskService($app->make(ProductionTask::class));
+        });
+
+        $this->app->bind(CompanyService::class, function ($app) {
+            return new CompanyService($app->make(Company::class));
+        });
+
+        $this->app->bind(ProductService::class, function ($app) {
+            return new ProductService($app->make(Product::class));
+        });
+
+        $this->app->bind(UserService::class, function ($app) {
+            return new UserService($app->make(User::class));
+        });
+
+        $this->app->bind(RoleService::class, function ($app) {
+            return new RoleService($app->make(Role::class));
+        });
     }
 
     /**
