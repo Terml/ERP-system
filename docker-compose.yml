@@ -58,6 +58,18 @@ services:
       - "5432:5432"
     networks:
       - laravel
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: laravel_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - laravel
   redis:
     image: redis:7-alpine
     container_name: laravel_redis
