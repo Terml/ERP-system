@@ -16,9 +16,6 @@ return new class extends Migration
             $table->string('login')->unique();
             $table->string('password'); 
             $table->timestamps();
-
-            // Индексы
-            $table->index('role_id'); // поиск по роли
         });
     }
 
