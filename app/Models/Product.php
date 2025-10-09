@@ -12,10 +12,12 @@ class Product extends Model
         'type',
         'unit',
     ];
-    public function orders(): HasMany{
+    public function orders(): HasMany
+    {
         return $this->hasMany(Order::class);
     }
-    public function taskComponents(): HasMany{
+    public function taskComponents(): HasMany
+    {
         return $this->hasMany(TaskComponent::class);
     }
 }
