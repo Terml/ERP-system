@@ -23,6 +23,7 @@ return new class extends Migration
                 'rejected', // отвергнуто ОТК
             ]);
             $table->timestamps();
+            $table->softDeletes();
 
             // Индексы
             $table->index('order_id'); // принадлежность заказа

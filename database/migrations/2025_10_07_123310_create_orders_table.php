@@ -25,6 +25,7 @@ return new class extends Migration
                 'rejected', // отвергнуто ОТК
             ])->default('wait');
             $table->timestamps();
+            $table->softDeletes();
             
             // Индексы
             $table->index('company_id'); // фильтр по компании

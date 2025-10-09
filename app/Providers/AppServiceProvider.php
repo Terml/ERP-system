@@ -23,27 +23,45 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(OrderService::class, function ($app) {
+        // $this->app->bind(OrderService::class, function ($app) {
+        //     return new OrderService($app->make(Order::class));
+        // });
+
+        // $this->app->bind(ProductionTaskService::class, function ($app) {
+        //     return new ProductionTaskService($app->make(ProductionTask::class));
+        // });
+
+        // $this->app->bind(CompanyService::class, function ($app) {
+        //     return new CompanyService($app->make(Company::class));
+        // });
+
+        // $this->app->bind(ProductService::class, function ($app) {
+        //     return new ProductService($app->make(Product::class));
+        // });
+
+        // $this->app->bind(UserService::class, function ($app) {
+        //     return new UserService($app->make(User::class));
+        // });
+
+        // $this->app->bind(RoleService::class, function ($app) {
+        //     return new RoleService($app->make(Role::class));
+        // });
+        $this->app->singleton(OrderService::class, function ($app) {
             return new OrderService($app->make(Order::class));
         });
-
-        $this->app->bind(ProductionTaskService::class, function ($app) {
+        $this->app->singleton(ProductionTaskService::class, function ($app) {
             return new ProductionTaskService($app->make(ProductionTask::class));
         });
-
-        $this->app->bind(CompanyService::class, function ($app) {
+        $this->app->singleton(CompanyService::class, function ($app) {
             return new CompanyService($app->make(Company::class));
         });
-
-        $this->app->bind(ProductService::class, function ($app) {
+        $this->app->singleton(ProductService::class, function ($app) {
             return new ProductService($app->make(Product::class));
         });
-
-        $this->app->bind(UserService::class, function ($app) {
+        $this->app->singleton(UserService::class, function ($app) {
             return new UserService($app->make(User::class));
         });
-
-        $this->app->bind(RoleService::class, function ($app) {
+        $this->app->singleton(RoleService::class, function ($app) {
             return new RoleService($app->make(Role::class));
         });
     }

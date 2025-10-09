@@ -3,24 +3,25 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Order extends Model
+class ArchiveProductionTask extends Model
 {
-    use SoftDeletes;
+    protected $table = 'archived_orders';
     protected $fillable = [
+        'original_id',
         'company_id',
         'product_id',
         'quantity',
         'deadline',
         'status',
+        'archived_at',
     ];
     protected function casts(): array
     {
         return [
             'deadline' => 'date',
+            'archived_at' => 'datetime',
         ];
     }
     public function company(): BelongsTo
@@ -30,9 +31,5 @@ class Order extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
-    }
-    public function productionTasks(): HasMany
-    {
-        return $this->hasMany(ProductionTask::class);
     }
 }
