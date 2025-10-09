@@ -10,7 +10,7 @@ class TaskComponent extends Model
     protected $fillable = [
         'production_task_id',
         'product_id',
-        'material_quantity',
+        'quantity',
     ];
     public function productionTask(): BelongsTo{
         return $this->belongsTo(ProductionTask::class);

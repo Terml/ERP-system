@@ -14,6 +14,9 @@ abstract class BaseService{
     public function find(int $id){
         return $this->model->find($id);
     }
+    public function findOrFail(int $id){
+        return $this->model->findOrFail($id);
+    }
     public function create(array $data){
         return $this->model->create($data);
     }

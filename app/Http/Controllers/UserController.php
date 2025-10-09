@@ -3,37 +3,18 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\RoleService;
 use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
     public function __construct(
-        private UserService $userService,
-        private RoleService $roleService,
-    ) {
-        // получение зависимостей конструктора, доступ к сервисам во всех методах ктрл
-    }
+        private UserService $userService
+    ) {}
     public function register(Request $request): JsonResponse
     {
         try {
-            // валидация данных юзера
-            $validated = $request->validate([
-                'login' => 'required|string|unique:users,login',
-                'password' => 'required|string|min:6',
-                'roles' => 'required|array', // массив
-                'roles.*' => 'string' // каждый элемент массива - строка
-            ]);
-            // создание юзера
-            $user = $this->userService->createUserWithRoles(
-                [
-                    'login' => $validated['login'],
-                    'password' => Hash::make($validated['password']),
-                ],
-                $validated['roles']
-            );
+            $user = $this->userService->createUserWithRoles($request->all());
             return response()->json([
                 'success' => true,
                 'message' => 'Пользователь зарегистрирован',
@@ -47,6 +28,44 @@ class UserController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Ошибка регистрации',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function index(): JsonResponse
+    {
+        try {
+            $users = $this->userService->getAll();
+            return response()->json([
+                'success' => true,
+                'data' => $users
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения пользователей',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function show(int $userId): JsonResponse
+    {
+        try {
+            $user = $this->userService->find($userId);
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Пользователь не найден'
+                ], 404);
+            }
+            return response()->json([
+                'success' => true,
+                'data' => $user
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения пользователя',
                 'error' => $e->getMessage()
             ], 500);
         }

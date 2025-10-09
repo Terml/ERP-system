@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\ArchiveOrder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use App\Models\ArchiveProductionTask;
+use Illuminate\Support\Facades\Request;
 use Illuminate\Database\Eloquent\Collection;
 
 class OrderService extends BaseService
@@ -13,6 +15,33 @@ class OrderService extends BaseService
   public function __construct(Order $order)
   {
     parent::__construct($order);
+  }
+  public function createOrder(array $orderData): Order
+  {
+    // валидация
+    $validated = validator($orderData, [
+      'company_id' => 'required|exists:companies,id',
+      'product_id' => 'required|exists:products,id',
+      'quantity' => 'required|integer|min:1',
+      'deadline' => 'required|date|after:today'
+    ])->validate();
+    return DB::transaction(function () use ($validated) {
+      $order = $this->create($validated);
+      return $order->load(['company', 'product']);
+    });
+  }
+  public function completeOrder(int $orderId, ?string $completionNote = null): bool
+  {
+    return DB::transaction(function () use ($orderId, $completionNote) {
+      $order = $this->findOrFail($orderId);
+      // проверка
+      if ($order->status !== 'in_process') {
+        throw new \Exception('Заказ можно завершить только в статусе "in_process"');
+      }
+      // обновление статуса
+      $result = $order->update(['status' => 'completed']);
+      return $result;
+    });
   }
   public function getAllOrders()
   {
@@ -23,6 +52,16 @@ class OrderService extends BaseService
         $query->select('id', 'order_id', 'user_id', 'quantity', 'status')->with('user:id,login');
       }
     ])->select('id', 'company_id', 'product_id', 'quantity', 'deadline', 'status')->get();
+  }
+  public function getOrder(int $orderId): ?Order
+  {
+    return $this->model->with([
+      'company:id,name,contact_person,phone,email',
+      'product:id,name,type,unit,price',
+      'productionTasks' => function ($query) {
+        $query->with('user:id,login');
+      }
+    ])->find($orderId);
   }
   public function getAllDeletedOrders(): Collection
   {
