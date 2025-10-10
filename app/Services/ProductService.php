@@ -7,7 +7,4 @@ class ProductService extends BaseService{
     public function __construct(Product $product){
         parent::__construct($product);
     }
-    public function getAllProducts(){
-        return $this->model->all();
-    }
 }

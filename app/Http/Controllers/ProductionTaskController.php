@@ -4,8 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Http\Requests\CheckingOrderRequest;
+use App\Http\Requests\CreateProductionTaskRequest;
+use App\Http\Requests\TakeTaskRequest;
+use App\Http\Requests\AddComponentRequest;
 use App\Factories\ProductionTaskDTOFactory;
 use App\Services\ProductionTaskService;
+use App\Models\ProductionTask;
 use Illuminate\Http\JsonResponse;
 
 class ProductionTaskController extends Controller
@@ -29,9 +33,11 @@ class ProductionTaskController extends Controller
             ], 500);
         }
     }
-    public function store(Request $request): JsonResponse
+    public function store(CreateProductionTaskRequest $request): JsonResponse
     {
         try {
+            // проверка прав
+            $this->authorize('create', ProductionTask::class);
             $taskDTO = ProductionTaskDTOFactory::createFromRequest($request);
             $task = $this->taskService->createTask($taskDTO);
             return response()->json([
@@ -69,7 +75,7 @@ class ProductionTaskController extends Controller
             ], 500);
         }
     }
-    public function takeTask(Request $request, int $taskId): JsonResponse
+    public function takeTask(TakeTaskRequest $request, int $taskId): JsonResponse
     {
         try {
             $result = $this->taskService->takeTask($taskId, $request->input('user_id'));
@@ -87,9 +93,13 @@ class ProductionTaskController extends Controller
     public function sendForInspection(CheckingOrderRequest $request, int $taskId): JsonResponse
     {
         try {
+            // получение ордера
+            $task = $this->taskService->getTask($taskId);
+            // проверка прав
+            $this->authorize('sendForInspection', $task);
             $checkingDTO = ProductionTaskDTOFactory::createSendForInspectionFromRequest($request);
             $result = $this->taskService->sendForInspection($taskId, $checkingDTO);
-            
+
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Задание отправлено на проверку' : 'Ошибка отправки'
@@ -131,12 +141,15 @@ class ProductionTaskController extends Controller
             ], 400);
         }
     }
-    public function addComponent(Request $request, int $taskId): JsonResponse
+    public function addComponent(AddComponentRequest $request, int $taskId): JsonResponse
     {
         try {
+            // получение ордера
+            $task = $this->taskService->getTask($taskId);
+            // проверка прав
+            $this->authorize('addComponent', $task);
             $componentDTO = ProductionTaskDTOFactory::createTaskComponentFromRequest($request);
             $component = $this->taskService->addComponent($taskId, $componentDTO);
-            
             return response()->json([
                 'success' => true,
                 'message' => 'Компонент добавлен успешно',

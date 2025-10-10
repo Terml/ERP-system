@@ -9,6 +9,7 @@ use App\Http\Requests\CompleteOrderRequest;
 use App\Http\Requests\RejectOrderRequest;
 use App\Factories\OrderDTOFactory;
 use App\Services\OrderService;
+use App\Models\Order;
 use Illuminate\Http\JsonResponse;
 
 class OrderController extends Controller
@@ -19,6 +20,8 @@ class OrderController extends Controller
     public function store(CreateOrderRequest $request): JsonResponse
     {
         try {
+            // проверка прав
+            $this->authorize('create', Order::class);
             $orderDTO = OrderDTOFactory::createFromRequest($request);
             $order = $this->orderService->createOrder($orderDTO);
             return response()->json([
@@ -76,9 +79,12 @@ class OrderController extends Controller
     public function update(UpdateOrderRequest $request, int $orderId): JsonResponse
     {
         try {
+            // получение ордера
+            $order = $this->orderService->getOrder($orderId);
+            // проверка прав
+            $this->authorize('update', $order);
             $updateDTO = OrderDTOFactory::createUpdateFromRequest($request);
             $result = $this->orderService->updateOrder($orderId, $updateDTO);
-
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Заказ обновлен успешно' : 'Ошибка обновления заказа'
@@ -94,6 +100,10 @@ class OrderController extends Controller
     public function complete(CompleteOrderRequest $request, int $orderId): JsonResponse
     {
         try {
+            // получение ордера
+            $order = $this->orderService->getOrder($orderId);
+            // проверка прав
+            $this->authorize('complete', $order);
             $result = $this->orderService->completeOrder($orderId, $request->input('completion_note'));
             return response()->json([
                 'success' => $result,

@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\ArchiveOrder;
 use App\DTOs\CreateOrderDTO;
 use App\DTOs\UpdateOrderDTO;
+use App\Jobs\ProcessOrderCompletion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use App\Models\ArchiveProductionTask;
@@ -47,7 +48,14 @@ class OrderService extends BaseService
         throw new \Exception('Заказ можно завершить только в статусе "in_process"');
       }
       // обновление статуса
-      $result = $order->update(['status' => 'completed']);
+      $result = $order->update([
+        'status' => 'completed',
+        'completion_note' => $completionNote,
+        'completed_at' => now()
+      ]);
+      if ($result) {
+        ProcessOrderCompletion::dispatch($order);
+      }
       return $result;
     });
   }

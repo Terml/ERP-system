@@ -3,10 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Http\Exceptions\HttpResponseException;
 
-class CheckingOrderRequest extends FormRequest
+class CheckingOrderRequest extends BaseRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -61,16 +59,6 @@ class CheckingOrderRequest extends FormRequest
             'issues_encountered' => 'проблемы при выполнении',
             'estimated_completion_time' => 'оценочное время завершения'
         ];
-    }
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Ошибка валидации данных',
-                'errors' => $validator->errors()
-            ], 422)
-        );
     }
     protected function prepareForValidation(): void
     {

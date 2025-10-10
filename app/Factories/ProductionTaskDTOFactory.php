@@ -6,18 +6,20 @@ use App\DTOs\CreateProductionTaskDTO;
 use App\DTOs\CheckingDTO;
 use App\DTOs\TaskComponentDTO;
 use App\Http\Requests\CheckingOrderRequest;
+use App\Http\Requests\CreateProductionTaskRequest;
+use App\Http\Requests\AddComponentRequest;
 use Illuminate\Http\Request;
 
 class ProductionTaskDTOFactory
 {
-    public static function createFromRequest(Request $request): CreateProductionTaskDTO
+    public static function createFromRequest(CreateProductionTaskRequest $request): CreateProductionTaskDTO
     {
-        $data = $request->all();
+        $validated = $request->validated();
         
         return new CreateProductionTaskDTO(
-            orderId: $data['order_id'],
-            quantity: $data['quantity'],
-            userId: $data['user_id'] ?? null
+            orderId: $validated['order_id'],
+            quantity: $validated['quantity'],
+            userId: $validated['user_id'] ?? null
         );
     }
 
@@ -34,13 +36,13 @@ class ProductionTaskDTOFactory
         );
     }
 
-    public static function createTaskComponentFromRequest(Request $request): TaskComponentDTO
+    public static function createTaskComponentFromRequest(AddComponentRequest $request): TaskComponentDTO
     {
-        $data = $request->all();
+        $validated = $request->validated();
         
         return new TaskComponentDTO(
-            productId: $data['product_id'],
-            quantity: $data['quantity']
+            productId: $validated['product_id'],
+            quantity: $validated['quantity']
         );
     }
 }

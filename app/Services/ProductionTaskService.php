@@ -7,6 +7,7 @@ use App\Models\ProductionTask;
 use App\DTOs\CreateProductionTaskDTO;
 use App\DTOs\CheckingDTO;
 use App\DTOs\TaskComponentDTO;
+use App\Jobs\ProcessTaskStatusChange;
 use Illuminate\Support\Facades\DB;
 use App\Models\ArchiveProductionTask;
 
@@ -23,10 +24,14 @@ class ProductionTaskService extends BaseService
             return $task->load(['order', 'user']);
         });
     }
+    public function getTask(int $taskId): ProductionTask
+    {
+        return $this->findOrFail($taskId);
+    }
     public function addComponent(int $taskId, TaskComponentDTO $componentDTO): TaskComponent
     {
         return DB::transaction(function () use ($taskId, $componentDTO) {
-            $task = $this->find($taskId);
+            $task = $this->findOrFail($taskId);
             $component = TaskComponent::create([
                 'production_task_id' => $taskId,
                 'product_id' => $componentDTO->productId,
@@ -39,6 +44,7 @@ class ProductionTaskService extends BaseService
     {
         return DB::transaction(function () use ($taskId, $userId) {
             $task = $this->findOrFail($taskId);
+            $oldStatus = $task->status;
             // проверка
             if ($task->status !== 'wait') {
                 throw new \Exception('Задание можно взять в работу только в статусе "wait"');
@@ -48,6 +54,9 @@ class ProductionTaskService extends BaseService
                 'user_id' => $userId,
                 'status' => 'in_process'
             ]);
+            if ($result) {
+                ProcessTaskStatusChange::dispatch($task, $oldStatus, 'in_process');
+            }
             return $result;
         });
     }
@@ -55,12 +64,16 @@ class ProductionTaskService extends BaseService
     {
         return DB::transaction(function () use ($taskId, $checkingDTO) {
             $task = $this->findOrFail($taskId);
+            $oldStatus = $task->status;
             // проверка
             if ($task->status !== 'in_process') {
                 throw new \Exception('Задание можно отправить на проверку только в статусе "in_process"');
             }
             // обновление статуса
             $result = $task->update(['status' => 'waiting_inspection']);
+            if ($result) {
+                ProcessTaskStatusChange::dispatch($task, $oldStatus, 'waiting_inspection');
+            }
             return $result;
         });
     }
@@ -68,12 +81,20 @@ class ProductionTaskService extends BaseService
     {
         return DB::transaction(function () use ($taskId, $otkUserId, $notes) {
             $task = $this->findOrFail($taskId);
+            $oldStatus = $task->status;
             // проверка
             if ($task->status !== 'waiting_inspection') {
                 throw new \Exception('Задание можно принять только в статусе "waiting_inspection"');
             }
             // обновление статуса
-            $result = $task->update(['status' => 'completed']);
+            $result = $task->update([
+                'status' => 'completed',
+                'otk_user_id' => $otkUserId,
+                'otk_notes' => $notes
+            ]);
+            if ($result) {
+                ProcessTaskStatusChange::dispatch($task, $oldStatus, 'completed');
+            }
             return $result;
         });
     }
@@ -81,12 +102,20 @@ class ProductionTaskService extends BaseService
     {
         return DB::transaction(function () use ($taskId, $otkUserId, $rejectionReason) {
             $task = $this->findOrFail($taskId);
+            $oldStatus = $task->status;
             // проверка
             if ($task->status !== 'waiting_inspection') {
                 throw new \Exception('Задание можно отклонить только в статусе "waiting_inspection"');
             }
             // обновление статуса
-            $result = $task->update(['status' => 'rejected']);
+            $result = $task->update([
+                'status' => 'rejected',
+                'otk_user_id' => $otkUserId,
+                'rejection_reason' => $rejectionReason
+            ]);
+            if ($result) {
+                ProcessTaskStatusChange::dispatch($task, $oldStatus, 'rejected');
+            }
             return $result;
         });
     }
@@ -154,7 +183,6 @@ class ProductionTaskService extends BaseService
             return count($restoredTasks);
         });
     }
-
     public function getTaskWithComponents(int $taskId): ?ProductionTask
     {
         return $this->model->with([
