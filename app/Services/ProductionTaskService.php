@@ -135,7 +135,11 @@ class ProductionTaskService extends BaseService
     }
     public function getAllTasks()
     {
-        return $this->model->all();
+        return $this->model->with([
+            'order:id,company_id,product_id,quantity,deadline,status',
+            'user:id,login',
+            'components.product:id,name,type,unit'
+        ])->paginate(15);
     }
     public function archiveTask(int $taskId): bool
     {
@@ -183,17 +187,15 @@ class ProductionTaskService extends BaseService
             return count($restoredTasks);
         });
     }
-    public function getTaskWithComponents(int $taskId): ?ProductionTask
+    public function getTaskWithComponents(int $taskId): ProductionTask
     {
         return $this->model->with([
             'order:id,company_id,product_id,quantity,deadline,status',
-            'order.company:id,name',
-            'order.product:id,name,type,unit',
+            'order.company:id,name,contact_person,phone',
+            'order.product:id,name,type,unit,price',
             'user:id,login',
-            'taskComponents' => function ($query) {
-                $query->with('product:id,name,type,unit,price');
-            }
-        ])->find($taskId);
+            'components.product:id,name,type,unit,price'
+        ])->findOrFail($taskId);
     }
     public function getTasksByStatus(string $status): \Illuminate\Database\Eloquent\Collection
     {

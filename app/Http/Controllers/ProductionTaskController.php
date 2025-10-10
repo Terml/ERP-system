@@ -10,6 +10,8 @@ use App\Http\Requests\AddComponentRequest;
 use App\Factories\ProductionTaskDTOFactory;
 use App\Services\ProductionTaskService;
 use App\Models\ProductionTask;
+use App\Http\Resources\ProductionTaskResource;
+use App\Http\Resources\ProductionTaskCollection;
 use Illuminate\Http\JsonResponse;
 
 class ProductionTaskController extends Controller
@@ -17,21 +19,19 @@ class ProductionTaskController extends Controller
     public function __construct(
         private ProductionTaskService $taskService
     ) {}
-    public function index(): JsonResponse
+    public function index(Request $request): ProductionTaskCollection
     {
-        try {
-            $tasks = $this->taskService->getAllTasks();
-            return response()->json([
-                'success' => true,
-                'data' => $tasks
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка получения заданий',
-                'error' => $e->getMessage()
-            ], 500);
+        $tasks = $this->taskService->getAllTasks();
+        if ($request->has('status')) {
+            $tasks = $tasks->where('status', $request->input('status'));
         }
+        if ($request->has('user_id')) {
+            $tasks = $tasks->where('user_id', $request->input('user_id'));
+        }
+        if ($request->has('order_id')) {
+            $tasks = $tasks->where('order_id', $request->input('order_id'));
+        }
+        return new ProductionTaskCollection($tasks);
     }
     public function store(CreateProductionTaskRequest $request): JsonResponse
     {
@@ -40,11 +40,9 @@ class ProductionTaskController extends Controller
             $this->authorize('create', ProductionTask::class);
             $taskDTO = ProductionTaskDTOFactory::createFromRequest($request);
             $task = $this->taskService->createTask($taskDTO);
-            return response()->json([
-                'success' => true,
-                'message' => 'Задание создано успешно',
-                'data' => $task
-            ], 201);
+            return (new ProductionTaskResource($task))
+                ->response()
+                ->setStatusCode(201);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -53,27 +51,10 @@ class ProductionTaskController extends Controller
             ], 500);
         }
     }
-    public function show(int $taskId): JsonResponse
+    public function show(int $taskId): ProductionTaskResource
     {
-        try {
-            $task = $this->taskService->getTaskWithComponents($taskId);
-            if (!$task) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Задание не найдено'
-                ], 404);
-            }
-            return response()->json([
-                'success' => true,
-                'data' => $task
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка получения задания',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        $task = $this->taskService->getTaskWithComponents($taskId);
+        return new ProductionTaskResource($task);
     }
     public function takeTask(TakeTaskRequest $request, int $taskId): JsonResponse
     {
@@ -193,21 +174,9 @@ class ProductionTaskController extends Controller
             ], 400);
         }
     }
-    public function getTasksByStatus(string $status): JsonResponse
+    public function getTasksByStatus(string $status): ProductionTaskCollection
     {
-        try {
-            $tasks = $this->taskService->getTasksByStatus($status);
-            return response()->json([
-                'success' => true,
-                'data' => $tasks,
-                'count' => $tasks->count()
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка получения заданий',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        $tasks = $this->taskService->getTasksByStatus($status);
+        return new ProductionTaskCollection($tasks);
     }
 }

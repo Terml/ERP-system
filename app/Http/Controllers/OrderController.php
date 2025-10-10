@@ -10,6 +10,8 @@ use App\Http\Requests\RejectOrderRequest;
 use App\Factories\OrderDTOFactory;
 use App\Services\OrderService;
 use App\Models\Order;
+use App\Http\Resources\OrderResource;
+use App\Http\Resources\OrderCollection;
 use Illuminate\Http\JsonResponse;
 
 class OrderController extends Controller
@@ -24,11 +26,9 @@ class OrderController extends Controller
             $this->authorize('create', Order::class);
             $orderDTO = OrderDTOFactory::createFromRequest($request);
             $order = $this->orderService->createOrder($orderDTO);
-            return response()->json([
-                'success' => true,
-                'message' => 'Заказ создан успешно',
-                'data' => $order
-            ], 201);
+            return (new OrderResource($order))
+                ->response()
+                ->setStatusCode(201);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -37,44 +37,24 @@ class OrderController extends Controller
             ], 500);
         }
     }
-    public function index(): JsonResponse
+    public function index(Request $request): OrderCollection
     {
-        try {
-            $orders = $this->orderService->getAllOrders();
-            return response()->json([
-                'success' => true,
-                'data' => $orders,
-                'count' => $orders->count()
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка получения заказов',
-                'error' => $e->getMessage()
-            ], 500);
+        $orders = $this->orderService->getAllOrders();
+        if ($request->has('status')) {
+            $orders = $orders->where('status', $request->input('status'));
         }
+        if ($request->has('company_id')) {
+            $orders = $orders->where('company_id', $request->input('company_id'));
+        }
+        if ($request->has('product_id')) {
+            $orders = $orders->where('product_id', $request->input('product_id'));
+        }
+        return new OrderCollection($orders);
     }
-    public function show(int $orderId): JsonResponse
+    public function show(int $orderId): OrderResource
     {
-        try {
-            $order = $this->orderService->getOrder($orderId);
-            if (!$order) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Заказ не найден'
-                ], 404);
-            }
-            return response()->json([
-                'success' => true,
-                'data' => $order
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка получения заказа',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        $order = $this->orderService->getOrder($orderId);
+        return new OrderResource($order);
     }
     public function update(UpdateOrderRequest $request, int $orderId): JsonResponse
     {

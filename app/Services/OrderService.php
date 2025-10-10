@@ -78,22 +78,20 @@ class OrderService extends BaseService
   public function getAllOrders()
   {
     return $this->model->with([
-      'company:id,name',
+      'company:id,name,contact_person,phone',
       'product:id,name,type,unit',
-      'productionTasks' => function ($query) {
-        $query->select('id', 'order_id', 'user_id', 'quantity', 'status')->with('user:id,login');
-      }
-    ])->select('id', 'company_id', 'product_id', 'quantity', 'deadline', 'status')->get();
+      'productionTasks:id,order_id,status'
+    ])->paginate(15);
   }
-  public function getOrder(int $orderId): ?Order
+  public function getOrder(int $orderId): Order
   {
     return $this->model->with([
       'company:id,name,contact_person,phone,email',
       'product:id,name,type,unit,price',
       'productionTasks' => function ($query) {
-        $query->with('user:id,login');
+        $query->with(['user:id,login', 'components.product:id,name,type,unit']);
       }
-    ])->find($orderId);
+    ])->findOrFail($orderId);
   }
   public function getAllDeletedOrders(): Collection
   {
