@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\ArchiveOrder;
+use App\DTOs\CreateOrderDTO;
+use App\DTOs\UpdateOrderDTO;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use App\Models\ArchiveProductionTask;
@@ -16,18 +18,24 @@ class OrderService extends BaseService
   {
     parent::__construct($order);
   }
-  public function createOrder(array $orderData): Order
+  public function createOrder(CreateOrderDTO $orderDTO): Order
   {
-    // валидация
-    $validated = validator($orderData, [
-      'company_id' => 'required|exists:companies,id',
-      'product_id' => 'required|exists:products,id',
-      'quantity' => 'required|integer|min:1',
-      'deadline' => 'required|date|after:today'
-    ])->validate();
-    return DB::transaction(function () use ($validated) {
-      $order = $this->create($validated);
+    return DB::transaction(function () use ($orderDTO) {
+      $order = $this->create($orderDTO->toArray());
       return $order->load(['company', 'product']);
+    });
+  }
+  public function updateOrder(int $orderId, UpdateOrderDTO $updateDTO): bool
+  {
+    return DB::transaction(function () use ($orderId, $updateDTO) {
+      $order = $this->findOrFail($orderId);
+      // проверка
+      if (!in_array($order->status, ['wait', 'in_process'])) {
+        throw new \Exception('Заказ можно обновить только в статусе "wait" или "in_process"');
+      }
+      // обновление заказа
+      $result = $order->update($updateDTO->toArray());
+      return $result;
     });
   }
   public function completeOrder(int $orderId, ?string $completionNote = null): bool
@@ -40,6 +48,22 @@ class OrderService extends BaseService
       }
       // обновление статуса
       $result = $order->update(['status' => 'completed']);
+      return $result;
+    });
+  }
+  public function rejectOrder(int $orderId, string $rejectionReason): bool
+  {
+    return DB::transaction(function () use ($orderId, $rejectionReason) {
+      $order = $this->findOrFail($orderId);
+      // проверка
+      if (!in_array($order->status, ['wait', 'in_process'])) {
+        throw new \Exception('Заказ можно отклонить только в статусе "wait" или "in_process"');
+      }
+      // обновление статуса
+      $result = $order->update([
+        'status' => 'rejected',
+        'rejection_reason' => $rejectionReason
+      ]);
       return $result;
     });
   }

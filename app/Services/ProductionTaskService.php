@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\TaskComponent;
 use App\Models\ProductionTask;
+use App\DTOs\CreateProductionTaskDTO;
+use App\DTOs\CheckingDTO;
+use App\DTOs\TaskComponentDTO;
 use Illuminate\Support\Facades\DB;
 use App\Models\ArchiveProductionTask;
 
@@ -13,32 +16,21 @@ class ProductionTaskService extends BaseService
     {
         parent::__construct($productionTask);
     }
-    public function createTask(array $taskData): ProductionTask
+    public function createTask(CreateProductionTaskDTO $taskDTO): ProductionTask
     {
-        // валидация
-        $validated = validator($taskData, [
-            'order_id' => 'required|exists:orders,id',
-            'quantity' => 'required|integer|min:1',
-            'user_id' => 'nullable|exists:users,id'
-        ])->validate();
-        return DB::transaction(function () use ($validated) {
-            $task = $this->create($validated);
+        return DB::transaction(function () use ($taskDTO) {
+            $task = $this->create($taskDTO->toArray());
             return $task->load(['order', 'user']);
         });
     }
-    public function addComponent(int $taskId, array $componentData): TaskComponent
+    public function addComponent(int $taskId, TaskComponentDTO $componentDTO): TaskComponent
     {
-        // валидация
-        $validated = validator($componentData, [
-            'product_id' => 'required|exists:products,id',
-            'material_quantity' => 'required|integer|min:1'
-        ])->validate();
-        return DB::transaction(function () use ($taskId, $validated) {
-            $task = $this->findOrFail($taskId);
+        return DB::transaction(function () use ($taskId, $componentDTO) {
+            $task = $this->find($taskId);
             $component = TaskComponent::create([
                 'production_task_id' => $taskId,
-                'product_id' => $validated['product_id'],
-                'material_quantity' => $validated['material_quantity']
+                'product_id' => $componentDTO->productId,
+                'quantity' => $componentDTO->quantity
             ]);
             return $component->load('product');
         });
@@ -59,9 +51,9 @@ class ProductionTaskService extends BaseService
             return $result;
         });
     }
-    public function sendForInspection(int $taskId, ?string $notes = null): bool
+    public function sendForInspection(int $taskId, CheckingDTO $checkingDTO): bool
     {
-        return DB::transaction(function () use ($taskId, $notes) {
+        return DB::transaction(function () use ($taskId, $checkingDTO) {
             $task = $this->findOrFail($taskId);
             // проверка
             if ($task->status !== 'in_process') {

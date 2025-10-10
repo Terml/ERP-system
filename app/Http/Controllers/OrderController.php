@@ -3,6 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\CreateOrderRequest;
+use App\Http\Requests\UpdateOrderRequest;
+use App\Http\Requests\CompleteOrderRequest;
+use App\Http\Requests\RejectOrderRequest;
+use App\Factories\OrderDTOFactory;
 use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 
@@ -11,10 +16,11 @@ class OrderController extends Controller
     public function __construct(
         private OrderService $orderService
     ) {}
-    public function store(Request $request): JsonResponse
+    public function store(CreateOrderRequest $request): JsonResponse
     {
         try {
-            $order = $this->orderService->createOrder($request->all());
+            $orderDTO = OrderDTOFactory::createFromRequest($request);
+            $order = $this->orderService->createOrder($orderDTO);
             return response()->json([
                 'success' => true,
                 'message' => 'Заказ создан успешно',
@@ -67,13 +73,47 @@ class OrderController extends Controller
             ], 500);
         }
     }
-    public function complete(Request $request, int $orderId): JsonResponse
+    public function update(UpdateOrderRequest $request, int $orderId): JsonResponse
+    {
+        try {
+            $updateDTO = OrderDTOFactory::createUpdateFromRequest($request);
+            $result = $this->orderService->updateOrder($orderId, $updateDTO);
+
+            return response()->json([
+                'success' => $result,
+                'message' => $result ? 'Заказ обновлен успешно' : 'Ошибка обновления заказа'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function complete(CompleteOrderRequest $request, int $orderId): JsonResponse
     {
         try {
             $result = $this->orderService->completeOrder($orderId, $request->input('completion_note'));
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Заказ завершен успешно' : 'Ошибка завершения заказа'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function reject(RejectOrderRequest $request, int $orderId): JsonResponse
+    {
+        try {
+            $result = $this->orderService->rejectOrder($orderId, $request->input('rejection_reason'));
+
+            return response()->json([
+                'success' => $result,
+                'message' => $result ? 'Заказ отклонен успешно' : 'Ошибка отклонения заказа'
             ]);
         } catch (\Exception $e) {
             return response()->json([

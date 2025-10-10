@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\CheckingOrderRequest;
+use App\Factories\ProductionTaskDTOFactory;
 use App\Services\ProductionTaskService;
 use Illuminate\Http\JsonResponse;
 
@@ -30,7 +32,8 @@ class ProductionTaskController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            $task = $this->taskService->createTask($request->all());
+            $taskDTO = ProductionTaskDTOFactory::createFromRequest($request);
+            $task = $this->taskService->createTask($taskDTO);
             return response()->json([
                 'success' => true,
                 'message' => 'Задание создано успешно',
@@ -81,10 +84,12 @@ class ProductionTaskController extends Controller
             ], 400);
         }
     }
-    public function sendForInspection(Request $request, int $taskId): JsonResponse
+    public function sendForInspection(CheckingOrderRequest $request, int $taskId): JsonResponse
     {
         try {
-            $result = $this->taskService->sendForInspection($taskId, $request->input('notes'));
+            $checkingDTO = ProductionTaskDTOFactory::createSendForInspectionFromRequest($request);
+            $result = $this->taskService->sendForInspection($taskId, $checkingDTO);
+            
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Задание отправлено на проверку' : 'Ошибка отправки'
@@ -129,7 +134,9 @@ class ProductionTaskController extends Controller
     public function addComponent(Request $request, int $taskId): JsonResponse
     {
         try {
-            $component = $this->taskService->addComponent($taskId, $request->all());
+            $componentDTO = ProductionTaskDTOFactory::createTaskComponentFromRequest($request);
+            $component = $this->taskService->addComponent($taskId, $componentDTO);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Компонент добавлен успешно',
