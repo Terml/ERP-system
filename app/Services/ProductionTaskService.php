@@ -70,27 +70,25 @@ class ProductionTaskService extends BaseService
                 throw new \Exception('Задание можно отправить на проверку только в статусе "in_process"');
             }
             // обновление статуса
-            $result = $task->update(['status' => 'waiting_inspection']);
+            $result = $task->update(['status' => 'checking']);
             if ($result) {
-                ProcessTaskStatusChange::dispatch($task, $oldStatus, 'waiting_inspection');
+                ProcessTaskStatusChange::dispatch($task, $oldStatus, 'checking');
             }
             return $result;
         });
     }
-    public function acceptByOTK(int $taskId, int $otkUserId, ?string $notes = null): bool
+    public function acceptByOTK(int $taskId, int $otkUserId): bool
     {
-        return DB::transaction(function () use ($taskId, $otkUserId, $notes) {
+        return DB::transaction(function () use ($taskId, $otkUserId) {
             $task = $this->findOrFail($taskId);
             $oldStatus = $task->status;
             // проверка
-            if ($task->status !== 'waiting_inspection') {
-                throw new \Exception('Задание можно принять только в статусе "waiting_inspection"');
+            if ($task->status !== 'checking') {
+                throw new \Exception('Задание можно принять только в статусе "checking"');
             }
             // обновление статуса
             $result = $task->update([
-                'status' => 'completed',
-                'otk_user_id' => $otkUserId,
-                'otk_notes' => $notes
+                'status' => 'completed'
             ]);
             if ($result) {
                 ProcessTaskStatusChange::dispatch($task, $oldStatus, 'completed');
@@ -98,20 +96,18 @@ class ProductionTaskService extends BaseService
             return $result;
         });
     }
-    public function rejectByOTK(int $taskId, int $otkUserId, string $rejectionReason): bool
+    public function rejectByOTK(int $taskId, int $otkUserId): bool
     {
-        return DB::transaction(function () use ($taskId, $otkUserId, $rejectionReason) {
+        return DB::transaction(function () use ($taskId, $otkUserId) {
             $task = $this->findOrFail($taskId);
             $oldStatus = $task->status;
             // проверка
-            if ($task->status !== 'waiting_inspection') {
-                throw new \Exception('Задание можно отклонить только в статусе "waiting_inspection"');
+            if ($task->status !== 'checking') {
+                throw new \Exception('Задание можно отклонить только в статусе "checking"');
             }
             // обновление статуса
             $result = $task->update([
-                'status' => 'rejected',
-                'otk_user_id' => $otkUserId,
-                'rejection_reason' => $rejectionReason
+                'status' => 'rejected'
             ]);
             if ($result) {
                 ProcessTaskStatusChange::dispatch($task, $oldStatus, 'rejected');
@@ -203,5 +199,131 @@ class ProductionTaskService extends BaseService
             ->with(['order.company:id,name', 'order.product:id,name,type,unit', 'user:id,login'])
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+    public function createTaskWithComponents(
+        CreateProductionTaskDTO $taskDTO, 
+        array $componentsData
+    ): ProductionTask {
+        return DB::transaction(function () use ($taskDTO, $componentsData) {
+            // блок заказа
+            $order = \App\Models\Order::lockForUpdate()->findOrFail($taskDTO->orderId);
+            // проверка статуса
+            if (!in_array($order->status, ['wait', 'in_process'])) {
+                throw new \Exception('Заказ должен быть в статусе "wait" или "in_process"');
+            }
+            // создание задания
+            $task = $this->create($taskDTO->toArray());
+            // добавление компонентов
+            foreach ($componentsData as $componentData) {
+                TaskComponent::create([
+                    'production_task_id' => $task->id,
+                    'product_id' => $componentData['product_id'],
+                    'quantity' => $componentData['quantity']
+                ]);
+            }
+            // обновление статуса
+            if ($order->status === 'wait') {
+                $order->update(['status' => 'in_process']);
+            }
+            return $task->load(['order', 'user', 'components.product']);
+        });
+    }
+    public function addMultipleComponents(int $taskId, array $componentsData): array {
+        return DB::transaction(function () use ($taskId, $componentsData) {
+            // блок задания
+            $task = ProductionTask::lockForUpdate()->findOrFail($taskId);
+            // проверка статуса
+            if (!in_array($task->status, ['wait', 'in_process'])) {
+                throw new \Exception('Компоненты можно добавлять только к заданиям в статусе "wait" или "in_process"');
+            }
+            $createdComponents = [];
+            foreach ($componentsData as $componentData) {
+                $component = TaskComponent::create([
+                    'production_task_id' => $taskId,
+                    'product_id' => $componentData['product_id'],
+                    'quantity' => $componentData['quantity']
+                ]);
+                $createdComponents[] = $component->load('product');
+            }
+            return $createdComponents;
+        });
+    }
+    public function acceptByOTKWithOrderCompletion(
+        int $taskId, 
+        int $otkUserId
+    ): array {
+        return DB::transaction(function () use ($taskId, $otkUserId) {
+            // блок задания и заказа
+            $task = ProductionTask::lockForUpdate()->findOrFail($taskId);
+            $order = \App\Models\Order::lockForUpdate()->findOrFail($task->order_id);
+            $oldTaskStatus = $task->status; 
+            // проверка статуса
+            if ($task->status !== 'checking') {
+                throw new \Exception('Задание можно принять только в статусе "checking"');
+            }
+            // обновление статуса
+            $task->update([
+                'status' => 'completed'
+            ]);
+            // проверка завершенности
+            $allTasksCompleted = ProductionTask::where('order_id', $order->id)
+                ->where('status', '!=', 'completed')
+                ->doesntExist();
+            $orderCompleted = false;
+            if ($allTasksCompleted && $order->status !== 'completed') {
+                $order->update([
+                    'status' => 'completed',
+                    'completed_at' => now()
+                ]);
+                $orderCompleted = true;
+            }
+            // завершение в фоне
+            ProcessTaskStatusChange::dispatch($task, $oldTaskStatus, 'completed');
+            return [
+                'task' => $task->fresh(),
+                'order' => $order->fresh(),
+                'order_completed' => $orderCompleted
+            ];
+        });
+    }
+    public function rejectByOTKWithReturn(
+        int $taskId, 
+        int $otkUserId
+    ): ProductionTask {
+        return DB::transaction(function () use ($taskId, $otkUserId) {
+            $task = ProductionTask::lockForUpdate()->findOrFail($taskId);
+            $oldStatus = $task->status;
+            if ($task->status !== 'checking') {
+                throw new \Exception('Задание можно отклонить только в статусе "checking"');
+            }
+            $task->update([
+                'status' => 'in_process'
+            ]);
+            ProcessTaskStatusChange::dispatch($task, $oldStatus, 'in_process');
+            return $task->fresh();
+        });
+    }
+    public function updateComponentWithLock(int $componentId, array $updateData): TaskComponent {
+        return DB::transaction(function () use ($componentId, $updateData) {
+            // блок задания и компонента
+            $component = TaskComponent::lockForUpdate()->findOrFail($componentId);
+            $task = ProductionTask::lockForUpdate()->findOrFail($component->production_task_id);
+            // проверка статуса
+            if (!in_array($task->status, ['wait', 'in_process'])) {
+                throw new \Exception('Компоненты можно обновлять только для заданий в статусе "wait" или "in_process"');
+            }
+            $component->update($updateData);
+            return $component->fresh()->load('product');
+        });
+    }
+    public function removeComponentWithLock(int $componentId): bool {
+        return DB::transaction(function () use ($componentId) {
+            $component = TaskComponent::lockForUpdate()->findOrFail($componentId);
+            $task = ProductionTask::lockForUpdate()->findOrFail($component->production_task_id);
+            if (!in_array($task->status, ['wait', 'in_process'])) {
+                throw new \Exception('Компоненты можно удалять только для заданий в статусе "wait" или "in_process"');
+            }
+            return $component->delete();
+        });
     }
 }

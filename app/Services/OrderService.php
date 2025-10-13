@@ -39,9 +39,9 @@ class OrderService extends BaseService
       return $result;
     });
   }
-  public function completeOrder(int $orderId, ?string $completionNote = null): bool
+  public function completeOrder(int $orderId): bool
   {
-    return DB::transaction(function () use ($orderId, $completionNote) {
+    return DB::transaction(function () use ($orderId) {
       $order = $this->findOrFail($orderId);
       // проверка
       if ($order->status !== 'in_process') {
@@ -49,9 +49,7 @@ class OrderService extends BaseService
       }
       // обновление статуса
       $result = $order->update([
-        'status' => 'completed',
-        'completion_note' => $completionNote,
-        'completed_at' => now()
+        'status' => 'completed'
       ]);
       if ($result) {
         ProcessOrderCompletion::dispatch($order);
@@ -59,9 +57,9 @@ class OrderService extends BaseService
       return $result;
     });
   }
-  public function rejectOrder(int $orderId, string $rejectionReason): bool
+  public function rejectOrder(int $orderId): bool
   {
-    return DB::transaction(function () use ($orderId, $rejectionReason) {
+    return DB::transaction(function () use ($orderId) {
       $order = $this->findOrFail($orderId);
       // проверка
       if (!in_array($order->status, ['wait', 'in_process'])) {
@@ -69,8 +67,7 @@ class OrderService extends BaseService
       }
       // обновление статуса
       $result = $order->update([
-        'status' => 'rejected',
-        'rejection_reason' => $rejectionReason
+        'status' => 'rejected'
       ]);
       return $result;
     });
@@ -186,6 +183,89 @@ class OrderService extends BaseService
         'restored_order_id' => $restoredOrder->id,
         'restored_tasks_count' => $restoredTasksCount,
         'message' => "Восстановлен заказ #{$restoredOrder->id} с {$restoredTasksCount} заданиями"
+      ];
+    });
+  }
+  public function createOrderWithLock(CreateOrderDTO $orderDTO): Order {
+    return DB::transaction(function () use ($orderDTO) {
+      // блок компании и продукта
+      $company = \App\Models\Company::lockForUpdate()->findOrFail($orderDTO->companyId);
+      $product = \App\Models\Product::lockForUpdate()->findOrFail($orderDTO->productId);
+      if ($product->type !== 'product') {
+        throw new \Exception('Можно создавать заказы только на готовые продукты');
+      }
+      $order = $this->create($orderDTO->toArray());
+      return $order->load(['company', 'product']);
+    });
+  }
+  public function updateOrderWithLock(int $orderId, UpdateOrderDTO $updateDTO): bool {
+    return DB::transaction(function () use ($orderId, $updateDTO) {
+      // блок заказа
+      $order = Order::lockForUpdate()->findOrFail($orderId);
+      // проверка статуса
+      if (!in_array($order->status, ['wait', 'in_process'])) {
+        throw new \Exception('Заказ можно обновить только в статусе "wait" или "in_process"');
+      }
+      // проверка дедлайна
+      if ($updateDTO->deadline && $updateDTO->deadline < now()) {
+        throw new \Exception('Новый дедлайн не может быть в прошлом');
+      }
+      return $order->update($updateDTO->toArray());
+    });
+  }
+  public function completeOrderWithLock(int $orderId): array {
+    return DB::transaction(function () use ($orderId) {
+      // блок заказа
+      $order = Order::lockForUpdate()->findOrFail($orderId);
+      // проверка статуса
+      if ($order->status !== 'in_process') {
+        throw new \Exception('Заказ можно завершить только в статусе "in_process"');
+      }
+      // проверка завершенности
+      $incompleteTasks = \App\Models\ProductionTask::where('order_id', $orderId)
+        ->where('status', '!=', 'completed')
+        ->exists();
+      if ($incompleteTasks) {
+        throw new \Exception('Нельзя завершить заказ, пока не завершены все производственные задания');
+      }
+      // обновление статуса заказа
+      $result = $order->update([
+        'status' => 'completed'
+      ]);
+      if ($result) {
+        ProcessOrderCompletion::dispatch($order);
+      }
+      return [
+        'order' => $order->fresh(),
+        'completed' => $result
+      ];
+    });
+  }
+  public function rejectOrderWithLock(int $orderId): array {
+    return DB::transaction(function () use ($orderId) {
+      // блок заказа
+      $order = Order::lockForUpdate()->findOrFail($orderId);
+      // проверка статуса
+      if (!in_array($order->status, ['wait', 'in_process'])) {
+        throw new \Exception('Заказ можно отклонить только в статусе "wait" или "in_process"');
+      }
+      // отклонение всех заданий
+      $tasks = \App\Models\ProductionTask::where('order_id', $orderId)
+        ->whereIn('status', ['wait', 'in_process', 'checking'])
+        ->get();
+      foreach ($tasks as $task) {
+        $task->update([
+          'status' => 'rejected'
+        ]);
+      }
+      // обновление статуса
+      $result = $order->update([
+        'status' => 'rejected'
+      ]);
+      return [
+        'order' => $order->fresh(),
+        'rejected_tasks_count' => $tasks->count(),
+        'rejected' => $result
       ];
     });
   }

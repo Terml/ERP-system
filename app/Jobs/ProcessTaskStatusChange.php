@@ -37,7 +37,7 @@ class ProcessTaskStatusChange implements ShouldQueue
                 case 'in_process':
                     $this->handleTaskStarted();
                     break;
-                case 'waiting_inspection':
+                case 'checking':
                     $this->handleTaskSentForInspection();
                     break;
                 case 'completed':

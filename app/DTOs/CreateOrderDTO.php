@@ -8,9 +8,7 @@ class CreateOrderDTO
         public readonly int $companyId,
         public readonly int $productId,
         public readonly int $quantity,
-        public readonly string $deadline,
-        public readonly ?string $priority = null,
-        public readonly ?string $notes = null
+        public readonly string $deadline
     ) {}
     public function toArray(): array
     {
@@ -19,8 +17,6 @@ class CreateOrderDTO
             'product_id' => $this->productId,
             'quantity' => $this->quantity,
             'deadline' => $this->deadline,
-            'priority' => $this->priority,
-            'notes' => $this->notes,
         ];
     }
 }

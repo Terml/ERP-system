@@ -84,7 +84,7 @@ class OrderController extends Controller
             $order = $this->orderService->getOrder($orderId);
             // проверка прав
             $this->authorize('complete', $order);
-            $result = $this->orderService->completeOrder($orderId, $request->input('completion_note'));
+            $result = $this->orderService->completeOrder($orderId);
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Заказ завершен успешно' : 'Ошибка завершения заказа'
@@ -99,11 +99,87 @@ class OrderController extends Controller
     public function reject(RejectOrderRequest $request, int $orderId): JsonResponse
     {
         try {
-            $result = $this->orderService->rejectOrder($orderId, $request->input('rejection_reason'));
+            $result = $this->orderService->rejectOrder($orderId);
 
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Заказ отклонен успешно' : 'Ошибка отклонения заказа'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function storeWithLock(CreateOrderRequest $request): JsonResponse
+    {
+        try {
+            $this->authorize('create', Order::class);
+            $orderDTO = OrderDTOFactory::createFromRequest($request);
+            $order = $this->orderService->createOrderWithLock($orderDTO);
+            return (new OrderResource($order))
+                ->response()
+                ->setStatusCode(201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка создания заказа',
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function updateWithLock(UpdateOrderRequest $request, int $orderId): JsonResponse
+    {
+        try {
+            $order = $this->orderService->getOrder($orderId);
+            $this->authorize('update', $order);
+            $updateDTO = OrderDTOFactory::createUpdateFromRequest($request);
+            $result = $this->orderService->updateOrderWithLock($orderId, $updateDTO);
+            return response()->json([
+                'success' => $result,
+                'message' => $result ? 'Заказ обновлен успешно' : 'Ошибка обновления заказа'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function completeWithLock(CompleteOrderRequest $request, int $orderId): JsonResponse
+    {
+        try {
+            $order = $this->orderService->getOrder($orderId);
+            $this->authorize('complete', $order);
+            $result = $this->orderService->completeOrderWithLock($orderId);
+            return response()->json([
+                'success' => $result['completed'],
+                'message' => $result['completed'] ? 'Заказ завершен успешно' : 'Ошибка завершения заказа',
+                'data' => new OrderResource($result['order'])
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function rejectWithLock(RejectOrderRequest $request, int $orderId): JsonResponse
+    {
+        try {
+            $order = $this->orderService->getOrder($orderId);
+            $this->authorize('reject', $order);
+            $result = $this->orderService->rejectOrderWithLock($orderId);
+            return response()->json([
+                'success' => $result['rejected'],
+                'message' => $result['rejected'] ? 
+                    "Заказ отклонен успешно. Отклонено заданий: {$result['rejected_tasks_count']}" : 
+                    'Ошибка отклонения заказа',
+                'data' => [
+                    'order' => new OrderResource($result['order']),
+                    'rejected_tasks_count' => $result['rejected_tasks_count']
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([

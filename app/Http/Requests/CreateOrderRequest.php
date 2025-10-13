@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Rules\DeadlineRule;
 
 class CreateOrderRequest extends BaseRequest
 {
@@ -41,8 +42,7 @@ class CreateOrderRequest extends BaseRequest
             'deadline' => [
                 'required',
                 'date',
-                'after:today',
-                'before:+1 year'
+                new DeadlineRule()
             ],
         ];
     }
@@ -57,8 +57,6 @@ class CreateOrderRequest extends BaseRequest
             'quantity.min' => 'Количество должно быть больше 0',
             'quantity.max' => 'Количество не может превышать 1000',
             'deadline.required' => 'Срок выполнения обязателен',
-            'deadline.after' => 'Срок выполнения должен быть в будущем',
-            'deadline.before' => 'Срок выполнения не может быть более чем через год',
         ];
     }
     public function attributes(): array

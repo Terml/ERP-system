@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Http\Requests\CheckingOrderRequest;
 use App\Http\Requests\CreateProductionTaskRequest;
+use App\Http\Requests\CreateProductionTaskWithComponentsRequest;
 use App\Http\Requests\TakeTaskRequest;
 use App\Http\Requests\AddComponentRequest;
+use App\Http\Requests\OTKDecisionWithCompletionRequest;
 use App\Factories\ProductionTaskDTOFactory;
 use App\Services\ProductionTaskService;
 use App\Models\ProductionTask;
@@ -95,7 +97,7 @@ class ProductionTaskController extends Controller
     public function acceptByOTK(Request $request, int $taskId): JsonResponse
     {
         try {
-            $result = $this->taskService->acceptByOTK($taskId, $request->input('otk_user_id'), $request->input('notes'));
+            $result = $this->taskService->acceptByOTK($taskId, $request->input('otk_user_id'));
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Задание принято ОТК' : 'Ошибка принятия'
@@ -110,7 +112,7 @@ class ProductionTaskController extends Controller
     public function rejectByOTK(Request $request, int $taskId): JsonResponse
     {
         try {
-            $result = $this->taskService->rejectByOTK($taskId, $request->input('otk_user_id'), $request->input('rejection_reason'));
+            $result = $this->taskService->rejectByOTK($taskId, $request->input('otk_user_id'));
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Задание отклонено ОТК' : 'Ошибка отклонения'
@@ -178,5 +180,139 @@ class ProductionTaskController extends Controller
     {
         $tasks = $this->taskService->getTasksByStatus($status);
         return new ProductionTaskCollection($tasks);
+    }
+    public function storeWithComponents(CreateProductionTaskWithComponentsRequest $request): JsonResponse
+    {
+        try {
+            $this->authorize('create', ProductionTask::class);
+            $taskDTO = ProductionTaskDTOFactory::createFromRequestWithComponents($request);
+            $componentsData = $request->input('components', []);
+            $task = $this->taskService->createTaskWithComponents($taskDTO, $componentsData);
+            return (new ProductionTaskResource($task))
+                ->response()
+                ->setStatusCode(201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка создания задания с компонентами',
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function addMultipleComponents(Request $request, int $taskId): JsonResponse
+    {
+        try {
+            $task = $this->taskService->getTask($taskId);
+            $this->authorize('addComponent', $task);
+            $componentsData = $request->input('components', []);
+            if (empty($componentsData)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Необходимо указать хотя бы один компонент'
+                ], 400);
+            }
+            $components = $this->taskService->addMultipleComponents($taskId, $componentsData);
+            return response()->json([
+                'success' => true,
+                'message' => 'Компоненты добавлены успешно',
+                'data' => $components
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка добавления компонентов',
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function acceptByOTKWithCompletion(OTKDecisionWithCompletionRequest $request, int $taskId): JsonResponse
+    {
+        try {
+            $task = $this->taskService->getTask($taskId);
+            $this->authorize('acceptByOTK', $task);
+            if ($request->input('decision') !== 'accepted') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Используйте метод rejectByOTKWithReturn для отклонения'
+                ], 400);
+            }
+            $result = $this->taskService->acceptByOTKWithOrderCompletion(
+                $taskId,
+                $request->input('otk_user_id')
+            );
+            return response()->json([
+                'success' => true,
+                'message' => 'Задание принято ОТК' . ($result['order_completed'] ? ', заказ автоматически завершен' : ''),
+                'data' => [
+                    'task' => new ProductionTaskResource($result['task']),
+                    'order' => $result['order'],
+                    'order_completed' => $result['order_completed']
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function rejectByOTKWithReturn(OTKDecisionWithCompletionRequest $request, int $taskId): JsonResponse
+    {
+        try {
+            $task = $this->taskService->getTask($taskId);
+            $this->authorize('rejectByOTK', $task);
+            if ($request->input('decision') !== 'rejected') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Используйте метод acceptByOTKWithCompletion для принятия'
+                ], 400);
+            }
+            $task = $this->taskService->rejectByOTKWithReturn(
+                $taskId,
+                $request->input('otk_user_id')
+            );
+            return response()->json([
+                'success' => true,
+                'message' => 'Задание отклонено ОТК и возвращено в работу',
+                'data' => new ProductionTaskResource($task)
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function updateComponentWithLock(Request $request, int $componentId): JsonResponse
+    {
+        try {
+            $updateData = $request->only(['quantity']);
+            $component = $this->taskService->updateComponentWithLock($componentId, $updateData);
+            return response()->json([
+                'success' => true,
+                'message' => 'Компонент обновлен успешно',
+                'data' => $component
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function removeComponentWithLock(int $componentId): JsonResponse
+    {
+        try {
+            $result = $this->taskService->removeComponentWithLock($componentId);
+            return response()->json([
+                'success' => $result,
+                'message' => $result ? 'Компонент удален успешно' : 'Ошибка удаления компонента'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
     }
 }

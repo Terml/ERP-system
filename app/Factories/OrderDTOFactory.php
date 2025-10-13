@@ -16,9 +16,7 @@ class OrderDTOFactory
             companyId: $validated['company_id'],
             productId: $validated['product_id'],
             quantity: $validated['quantity'],
-            deadline: $validated['deadline'],
-            priority: $validated['priority'] ?? null,
-            notes: $validated['notes'] ?? null
+            deadline: $validated['deadline']
         );
     }
 
@@ -28,9 +26,7 @@ class OrderDTOFactory
         
         return new UpdateOrderDTO(
             quantity: $validated['quantity'] ?? null,
-            deadline: $validated['deadline'] ?? null,
-            priority: $validated['priority'] ?? null,
-            notes: $validated['notes'] ?? null
+            deadline: $validated['deadline'] ?? null
         );
     }
 }

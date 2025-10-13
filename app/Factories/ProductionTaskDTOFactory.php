@@ -7,6 +7,7 @@ use App\DTOs\CheckingDTO;
 use App\DTOs\TaskComponentDTO;
 use App\Http\Requests\CheckingOrderRequest;
 use App\Http\Requests\CreateProductionTaskRequest;
+use App\Http\Requests\CreateProductionTaskWithComponentsRequest;
 use App\Http\Requests\AddComponentRequest;
 use Illuminate\Http\Request;
 
@@ -23,6 +24,15 @@ class ProductionTaskDTOFactory
         );
     }
 
+    public static function createFromRequestWithComponents(CreateProductionTaskWithComponentsRequest $request): CreateProductionTaskDTO
+    {
+        $validated = $request->validated();
+        return new CreateProductionTaskDTO(
+            orderId: $validated['order_id'],
+            quantity: $validated['quantity'],
+            userId: $validated['user_id'] ?? null
+        );
+    }
     public static function createSendForInspectionFromRequest(CheckingOrderRequest $request): CheckingDTO
     {
         $validated = $request->validated();

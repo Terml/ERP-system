@@ -11,7 +11,7 @@ class RejectOrderRequest extends BaseRequest
      */
     public function authorize(): bool
     {
-        return $this->user() && $this->user()->hasRole(roleName: 'otk');
+        return $this->user() && $this->user()->hasRole('otk');
     }
 
     /**
@@ -21,25 +21,14 @@ class RejectOrderRequest extends BaseRequest
      */
     public function rules(): array
     {
-        return [
-            'rejection_reason' => [
-                'required',
-                'string',
-                'max:1000'
-            ],
-        ];
+        return [];
     }
     public function messages(): array
     {
-        return [
-            'rejection_reason.required' => 'Причина отклонения обязательна',
-            'rejection_reason.max' => 'Причина отклонения не может превышать 1000 символов',
-        ];
+        return [];
     }
     public function attributes(): array
     {
-        return [
-            'rejection_reason' => 'причина отклонения',
-        ];
+        return [];
     }
 }
