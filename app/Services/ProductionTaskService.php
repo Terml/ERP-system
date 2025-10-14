@@ -129,13 +129,35 @@ class ProductionTaskService extends BaseService
             return $component->delete();
         });
     }
-    public function getAllTasks()
+    public function getAllTasks($request = null)
     {
-        return $this->model->with([
-            'order:id,company_id,product_id,quantity,deadline,status',
+        $query = $this->model->with([
+            'order:id,company_id,deadline,status',
+            'order.company:id,name',
             'user:id,login',
             'components.product:id,name,type,unit'
-        ])->paginate(15);
+        ]);
+        if ($request) {
+            if ($request->has('status') && $request->input('status') !== '') {
+                $query->where('status', $request->input('status'));
+            }
+            if ($request->has('user_id') && $request->input('user_id') !== '') {
+                $query->where('user_id', $request->input('user_id'));
+            }
+            if ($request->has('order_id') && $request->input('order_id') !== '') {
+                $query->where('order_id', $request->input('order_id'));
+            }
+            if ($request->has('search') && $request->input('search') !== '') {
+                $search = $request->input('search');
+                $query->where(function($q) use ($search) {
+                    $q->where('id', 'ilike', "%{$search}%")
+                      ->orWhereHas('order', function($orderQuery) use ($search) {
+                          $orderQuery->where('id', 'ilike', "%{$search}%");
+                      });
+                });
+            }
+        }
+        return $query->paginate(15);
     }
     public function archiveTask(int $taskId): bool
     {
@@ -186,17 +208,16 @@ class ProductionTaskService extends BaseService
     public function getTaskWithComponents(int $taskId): ProductionTask
     {
         return $this->model->with([
-            'order:id,company_id,product_id,quantity,deadline,status',
-            'order.company:id,name,contact_person,phone',
-            'order.product:id,name,type,unit,price',
+            'order:id,company_id,deadline,status',
+            'order.company:id,name,phone',
             'user:id,login',
-            'components.product:id,name,type,unit,price'
+            'components.product:id,name,type,unit'
         ])->findOrFail($taskId);
     }
     public function getTasksByStatus(string $status): \Illuminate\Database\Eloquent\Collection
     {
         return $this->model->where('status', $status)
-            ->with(['order.company:id,name', 'order.product:id,name,type,unit', 'user:id,login'])
+            ->with(['order.company:id,name', 'user:id,login'])
             ->orderBy('created_at', 'desc')
             ->get();
     }
@@ -212,7 +233,13 @@ class ProductionTaskService extends BaseService
                 throw new \Exception('Заказ должен быть в статусе "wait" или "in_process"');
             }
             // создание задания
-            $task = $this->create($taskDTO->toArray());
+            $taskData = $taskDTO->toArray();
+            $task = $this->create($taskData);
+            
+            if (!$task) {
+                throw new \Exception('Не удалось создать задание');
+            }
+            
             // добавление компонентов
             foreach ($componentsData as $componentData) {
                 TaskComponent::create([
@@ -307,6 +334,22 @@ class ProductionTaskService extends BaseService
                 throw new \Exception('Компоненты можно удалять только для заданий в статусе "wait" или "in_process"');
             }
             return $component->delete();
+        });
+    }
+    public function updateComponents(int $taskId, array $componentsData): bool {
+        return DB::transaction(function () use ($taskId, $componentsData) {
+            $task = ProductionTask::lockForUpdate()->findOrFail($taskId);
+            if ($task->status !== 'in_process') {
+                throw new \Exception('Компоненты можно обновлять только для заданий в статусе "in_process"');
+            }
+            foreach ($componentsData as $componentData) {
+                $component = TaskComponent::findOrFail($componentData['id']);
+                $component->update([
+                    'used_quantity' => $componentData['used_quantity']
+                ]);
+            }
+            $task->update(['status' => 'checking']);
+            return true;
         });
     }
 }

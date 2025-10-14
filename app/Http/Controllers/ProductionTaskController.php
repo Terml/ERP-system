@@ -23,16 +23,7 @@ class ProductionTaskController extends Controller
     ) {}
     public function index(Request $request): ProductionTaskCollection
     {
-        $tasks = $this->taskService->getAllTasks();
-        if ($request->has('status')) {
-            $tasks = $tasks->where('status', $request->input('status'));
-        }
-        if ($request->has('user_id')) {
-            $tasks = $tasks->where('user_id', $request->input('user_id'));
-        }
-        if ($request->has('order_id')) {
-            $tasks = $tasks->where('order_id', $request->input('order_id'));
-        }
+        $tasks = $this->taskService->getAllTasks($request);
         return new ProductionTaskCollection($tasks);
     }
     public function store(CreateProductionTaskRequest $request): JsonResponse
@@ -61,7 +52,7 @@ class ProductionTaskController extends Controller
     public function takeTask(TakeTaskRequest $request, int $taskId): JsonResponse
     {
         try {
-            $result = $this->taskService->takeTask($taskId, $request->input('user_id'));
+            $result = $this->taskService->takeTask($taskId, auth()->id());
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Задание взято в работу' : 'Ошибка взятия задания'
@@ -187,6 +178,7 @@ class ProductionTaskController extends Controller
             $this->authorize('create', ProductionTask::class);
             $taskDTO = ProductionTaskDTOFactory::createFromRequestWithComponents($request);
             $componentsData = $request->input('components', []);
+            
             $task = $this->taskService->createTaskWithComponents($taskDTO, $componentsData);
             return (new ProductionTaskResource($task))
                 ->response()
@@ -280,6 +272,26 @@ class ProductionTaskController extends Controller
             return response()->json([
                 'success' => $result,
                 'message' => $result ? 'Компонент удален успешно' : 'Ошибка удаления компонента'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+    public function updateComponents(Request $request, int $taskId): JsonResponse
+    {
+        try {
+            $task = $this->taskService->getTask($taskId);
+            $this->authorize('addComponent', $task);
+            
+            $components = $request->input('components', []);
+            $result = $this->taskService->updateComponents($taskId, $components);
+            
+            return response()->json([
+                'success' => $result,
+                'message' => $result ? 'Компоненты обновлены успешно. Задание отправлено на проверку.' : 'Ошибка обновления компонентов'
             ]);
         } catch (\Exception $e) {
             return response()->json([

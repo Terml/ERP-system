@@ -39,7 +39,6 @@ class ImportExcel implements ShouldQueue
     public function handle(ProductService $productService, CacheService $cacheService): void
     {
         if ($this->batch() && $this->batch()->cancelled()) {
-            Log::info("Импорт отменен для файла: {$this->filePath}");
             return;
         }
         $startTime = microtime(true);
@@ -53,7 +52,6 @@ class ImportExcel implements ShouldQueue
             'chunk_size' => $this->chunkSize,
         ];
         try {
-            Log::info("Начало импорта Excel файла: {$this->filePath}, размер чанка: {$this->chunkSize}");
             $spreadsheet = IOFactory::load($this->filePath);
             $worksheet = $spreadsheet->getActiveSheet();
             $highestRow = $worksheet->getHighestRow();
@@ -62,7 +60,6 @@ class ImportExcel implements ShouldQueue
             $this->processInChunks($worksheet, $columns, $results, $productService);
             $cacheService->flushPattern('products:*');
             $results['processing_time'] = round(microtime(true) - $startTime, 2);
-            Log::info("Импорт завершен", $results);
         } catch (\Exception $e) {
             Log::error("Критическая ошибка импорта: " . $e->getMessage());
             $results['errors'][] = [
@@ -79,15 +76,12 @@ class ImportExcel implements ShouldQueue
     {
         $highestRow = $worksheet->getHighestRow();
         $totalChunks = ceil(($highestRow - 1) / $this->chunkSize);
-        Log::info("Начинаем обработку {$totalChunks} чанков по {$this->chunkSize} строк");
         for ($chunkIndex = 0; $chunkIndex < $totalChunks; $chunkIndex++) {
             if ($this->batch() && $this->batch()->cancelled()) {
-                Log::info("Импорт отменен на чанке " . ($chunkIndex + 1) . "/{$totalChunks}");
                 break;
             }
             $startRow = 2 + ($chunkIndex * $this->chunkSize);
             $endRow = min($startRow + $this->chunkSize - 1, $highestRow);
-            Log::info("Обработка чанка " . ($chunkIndex + 1) . "/{$totalChunks} (строки {$startRow}-{$endRow})");
             try {
                 // обработка чанка
                 DB::transaction(function () use ($worksheet, $columns, $startRow, $endRow, &$results, $productService) {
@@ -125,7 +119,6 @@ class ImportExcel implements ShouldQueue
                 $product = $this->createProduct($rowData, $productService);
                 if ($product) {
                     $results['imported']++;
-                    Log::debug("Импортирован продукт: {$product->name} (ID: {$product->id})");
                 } else {
                     $results['skipped']++;
                 }
@@ -224,7 +217,6 @@ class ImportExcel implements ShouldQueue
                 $existingProduct = Product::where('name', $data['name'])->lockForUpdate()->first();
                 if ($existingProduct) {
                     if ($this->options['overwrite_existing'] ?? false) {
-                        Log::info("Перезаписываем существующий продукт: {$data['name']}");
                         $existingProduct->update([
                             'type' => trim($data['type']),
                             'unit' => trim($data['unit']),
@@ -255,7 +247,6 @@ class ImportExcel implements ShouldQueue
     }
     protected function notifyUser(array $results): void
     {
-        Log::info("Результаты импорта для пользователя {$this->userId}:", $results);
     }
     public function backoff(): array
     {

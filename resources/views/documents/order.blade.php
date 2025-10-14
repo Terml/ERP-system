@@ -5,16 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Заказ №{{ $order->id }}</title>
-    <link rel="stylesheet" href="{{ asset('css/documents.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
 
 <body>
-    <button class="print-button" onclick="window.print()">Печать</button>
-
     <div class="document">
         <div class="header">
-            <h1>ЗАКАЗ НА ПРОИЗВОДСТВО</h1>
-            <div class="subtitle">№ {{ $order->id }} от {{ $order->created_at->format('d.m.Y') }}</div>
+            <div class="header-content">
+                <div class="nav-controls">
+                    <button class="nav-button" onclick="navigateOrder('prev')" id="prevBtn">←</button>
+                    <button class="nav-button" onclick="navigateOrder('next')" id="nextBtn">→</button>
+                </div>
+                <div class="title-section">
+                    <h1>ЗАКАЗ НА ПРОИЗВОДСТВО</h1>
+                    <div class="subtitle">№ {{ $order->id }} от {{ $order->created_at->format('d.m.Y') }}</div>
+                </div>
+                <div class="print-control">
+                    <button class="print-button" onclick="window.print()">Печать</button>
+                </div>
+            </div>
         </div>
 
         <div class="order-info">
@@ -46,40 +55,42 @@
                     <span class="info-label">Название:</span>
                     <span class="info-value">{{ $company->name }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Описание:</span>
-                    <span class="info-value">{{ $company->description ?? 'Не указано' }}</span>
-                </div>
             </div>
         </div>
-
-        <div class="product-details">
-            <h3>Детали продукции</h3>
-            <table class="product-table">
-                <thead>
-                    <tr>
-                        <th>Наименование</th>
-                        <th>Тип</th>
-                        <th>Единица измерения</th>
-                        <th>Количество</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>{{ $product->name }}</td>
-                        <td>{{ $product->type === 'product' ? 'Продукт' : 'Материал' }}</td>
-                        <td>{{ $product->unit }}</td>
-                        <td><strong>{{ $order->quantity }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="footer">
-            <p>Документ сгенерирован: {{ $generated_at->format('d.m.Y H:i:s') }}</p>
-            <p>Система управления производством</p>
-        </div>
     </div>
+
+    <script>
+        const currentOrderId = {{ $order->id }};
+        
+        function navigateOrder(direction) {
+            const url = new URL(window.location);
+            url.searchParams.set('order_id', currentOrderId);
+            url.searchParams.set('direction', direction);
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.order_id) {
+                        window.location.href = `/documents/order?order_id=${data.order_id}`;
+                    } else {
+                        alert(direction === 'prev' ? 'Это первый заказ' : 'Это последний заказ');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка навигации:', error);
+                });
+        }
+        
+        window.addEventListener('beforeprint', function() {
+            document.querySelector('.nav-controls').style.display = 'none';
+            document.querySelector('.print-control').style.display = 'none';
+        });
+        
+        window.addEventListener('afterprint', function() {
+            document.querySelector('.nav-controls').style.display = 'flex';
+            document.querySelector('.print-control').style.display = 'block';
+        });
+    </script>
 
 </body>
 

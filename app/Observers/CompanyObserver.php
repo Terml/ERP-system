@@ -39,7 +39,7 @@ class CompanyObserver
             $tags = ['companies', 'reference_data', 'statistics'];
             $this->cacheService->flushByTags($tags);
         } catch (\Exception $e) {
-            Log::error('Company cache invalidation failed: ' . $e->getMessage());
+            Log::error('Ошибка инвалидации кеша ' . $e->getMessage());
         }
     }
 }

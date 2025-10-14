@@ -20,7 +20,7 @@ class NotificationController extends Controller
             $request->validate([
                 'order_id' => 'required|integer|exists:orders,id',
             ]);
-            $order = Order::with(['company', 'product'])->findOrFail($request->order_id);
+            $order = Order::with(['company'])->findOrFail($request->order_id);
             $this->orderService->sendOrderCreatedNotification($order);
             return response()->json([
                 'success' => true,
@@ -28,7 +28,6 @@ class NotificationController extends Controller
                 'data' => [
                     'order_id' => $order->id,
                     'company_name' => $order->company->name,
-                    'product_name' => $order->product->name,
                 ]
             ]);
 
@@ -48,7 +47,7 @@ class NotificationController extends Controller
                 'old_status' => 'required|string',
                 'new_status' => 'required|string',
             ]);
-            $order = Order::with(['company', 'product'])->findOrFail($request->order_id);
+            $order = Order::with(['company'])->findOrFail($request->order_id);
             $this->orderService->sendOrderUpdatedNotification($order, $request->old_status);
             return response()->json([
                 'success' => true,
@@ -75,7 +74,7 @@ class NotificationController extends Controller
                 'type' => 'required|string|in:created,updated,completed,rejected,deadline_approaching,deadline_expired',
             ]);
 
-            $order = Order::with(['company', 'product'])->findOrFail($request->order_id);
+            $order = Order::with(['company'])->findOrFail($request->order_id);
             
             // Отправляем Job для уведомления
             NoticeManager::dispatch($order, $request->type);
@@ -131,7 +130,7 @@ class NotificationController extends Controller
                 'orders_expired' => Order::where('status', 'in_process')
                     ->where('deadline', '<', now())
                     ->count(),
-                'recent_orders' => Order::with(['company', 'product'])
+                'recent_orders' => Order::with(['company'])
                     ->orderBy('created_at', 'desc')
                     ->limit(5)
                     ->get()
@@ -139,7 +138,6 @@ class NotificationController extends Controller
                         return [
                             'id' => $order->id,
                             'company_name' => $order->company->name,
-                            'product_name' => $order->product->name,
                             'status' => $order->status,
                             'deadline' => $order->deadline,
                             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
@@ -167,7 +165,7 @@ class NotificationController extends Controller
                 'type' => 'required|string|in:created,updated,completed,rejected,deadline_approaching,deadline_expired',
             ]);
             $manager = User::findOrFail($request->manager_id);
-            $order = Order::with(['company', 'product'])->findOrFail($request->order_id);
+            $order = Order::with(['company'])->findOrFail($request->order_id);
             if (!$manager->hasRole('manager')) {
                 return response()->json([
                     'success' => false,

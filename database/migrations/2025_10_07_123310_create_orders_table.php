@@ -14,8 +14,8 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignID('company_id')->constrained('companies')->onDelete('cascade');;
-            $table->foreignID('product_id')->constrained('products')->onDelete('cascade');;
+            $table->foreignID('company_id')->constrained('companies')->onDelete('cascade');
+            $table->foreignID('product_id')->constrained('products')->onDelete('cascade');
             $table->integer('quantity');
             $table->date('deadline');
             $table->enum('status', [
@@ -29,7 +29,6 @@ return new class extends Migration
             
             // Индексы
             $table->index('company_id'); // фильтр по компании
-            $table->index('product_id'); // фильтр по продукту
             $table->index('status'); // фильтр по статусу
             $table->index('deadline'); // сортировка по срокам
         });

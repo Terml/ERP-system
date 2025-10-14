@@ -31,22 +31,12 @@ class ProcessOrderCompletion implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info("Обработка завершения заказа #{$this->order->id}", [
-                'order_id' => $this->order->id,
-                'company_id' => $this->order->company_id,
-                'product_id' => $this->order->product_id,
-                'quantity' => $this->order->quantity
-            ]);
             $tasks = ProductionTask::where('order_id', $this->order->id)->get();
             $completedTasks = $tasks->where('status', 'completed')->count();
             $totalTasks = $tasks->count();
             if ($completedTasks === $totalTasks && $totalTasks > 0) {
                 $this->order->update([
                     'status' => 'completed'
-                ]);
-                Log::info("Заказ #{$this->order->id} автоматически завершен", [
-                    'completed_tasks' => $completedTasks,
-                    'total_tasks' => $totalTasks
                 ]);
             }
         } catch (\Exception $e) {

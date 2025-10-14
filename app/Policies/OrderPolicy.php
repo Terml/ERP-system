@@ -20,6 +20,12 @@ class OrderPolicy
      */
     public function view(User $user, Order $order): bool
     {
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+        if ($user->hasRole('manager')) {
+            return $order->status === 'completed';
+        }
         return true;
     }
     /**
@@ -27,14 +33,14 @@ class OrderPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('manager');
+        return $user->hasRole('admin') || $user->hasRole('manager');
     }
     /**
      * Determine whether the user can update the model.
      */
     public function update(User $user, Order $order): bool
     {
-        return $user->hasRole('manager');
+        return $user->hasRole('admin') || $user->hasRole('manager');
     }
     /**
      * Determine whether the user can delete the model.
@@ -48,14 +54,14 @@ class OrderPolicy
      */
     public function complete(User $user, Order $order): bool
     {
-        return $user->hasRole('manager');
+        return $user->hasRole('admin') || $user->hasRole('manager');
     }
     /**
      * Determine whether the user can reject the order.
      */
     public function reject(User $user, Order $order): bool
     {
-        return $user->hasRole('manager');
+        return $user->hasRole('admin') || $user->hasRole('manager');
     }
     /**
      * Determine whether the user can restart the order.

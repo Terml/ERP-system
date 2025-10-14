@@ -44,14 +44,12 @@ class ReportProduction implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info("Начало генерации отчета по производству: {$this->reportType}");
             $reportData = $this->generateReport();
             $report = Report::create([
                 'type' => $this->reportType,
                 'user_id' => $this->userId,
                 'data' => $reportData,
             ]);
-            Log::info("Отчет по производству сгенерирован и сохранен в БД: ID {$report->id}");
         } catch (\Exception $e) {
             Log::error("Ошибка генерации отчета по производству: " . $e->getMessage());
             throw $e;
@@ -71,11 +69,10 @@ class ReportProduction implements ShouldQueue
         $companyId = $this->parameters['company_id'];
         $company = Company::findOrFail($companyId);
         $orders = Order::where('company_id', $companyId)
-            ->with(['product'])
             ->get();
         $tasks = ProductionTask::whereHas('order', function ($query) use ($companyId) {
             $query->where('company_id', $companyId);
-        })->with(['order.product', 'user'])->get();
+        })->with(['order', 'user'])->get();
         return [
             'report_type' => 'by_company',
             'company' => [
@@ -94,8 +91,6 @@ class ReportProduction implements ShouldQueue
             'orders' => $orders->map(function ($order) {
                 return [
                     'id' => $order->id,
-                    'product_name' => $order->product->name,
-                    'quantity' => $order->quantity,
                     'status' => $order->status,
                     'deadline' => $order->deadline,
                     'created_at' => $order->created_at->format('Y-m-d H:i:s'),
@@ -107,10 +102,11 @@ class ReportProduction implements ShouldQueue
     {
         $productId = $this->parameters['product_id'];
         $product = Product::findOrFail($productId);
-        $orders = Order::where('product_id', $productId)
-            ->with(['company'])
+        $orders = Order::whereHas('productionTasks.components', function ($query) use ($productId) {
+            $query->where('product_id', $productId);
+        })->with(['company'])
             ->get();
-        $tasks = ProductionTask::whereHas('order', function ($query) use ($productId) {
+        $tasks = ProductionTask::whereHas('components', function ($query) use ($productId) {
             $query->where('product_id', $productId);
         })->with(['order.company', 'user'])->get();
         return [
@@ -124,7 +120,6 @@ class ReportProduction implements ShouldQueue
             'generated_at' => now()->format('Y-m-d H:i:s'),
             'summary' => [
                 'total_orders' => $orders->count(),
-                'total_quantity' => $orders->sum('quantity'),
                 'total_tasks' => $tasks->count(),
                 'completed_tasks' => $tasks->where('status', 'completed')->count(),
             ],
@@ -132,7 +127,6 @@ class ReportProduction implements ShouldQueue
                 return [
                     'id' => $order->id,
                     'company_name' => $order->company->name,
-                    'quantity' => $order->quantity,
                     'status' => $order->status,
                     'deadline' => $order->deadline,
                     'created_at' => $order->created_at->format('Y-m-d H:i:s'),
@@ -170,8 +164,6 @@ class ReportProduction implements ShouldQueue
                 return [
                     'id' => $order->id,
                     'company_name' => $order->company->name,
-                    'product_name' => $order->product->name,
-                    'quantity' => $order->quantity,
                     'status' => $order->status,
                     'created_at' => $order->created_at->format('Y-m-d H:i:s'),
                 ];

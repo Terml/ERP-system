@@ -16,12 +16,6 @@ class CreateProductionTaskWithComponentsRequest extends BaseRequest
                 'integer',
                 'exists:orders,id'
             ],
-            'quantity' => [
-                'required',
-                'integer',
-                'min:1',
-                'max:1000'
-            ],
             'user_id' => [
                 'nullable',
                 'integer',
@@ -50,9 +44,6 @@ class CreateProductionTaskWithComponentsRequest extends BaseRequest
         return [
             'order_id.required' => 'ID заказа обязателен для заполнения',
             'order_id.exists' => 'Выбранный заказ не существует',
-            'quantity.required' => 'Количество обязательно для заполнения',
-            'quantity.min' => 'Количество должно быть больше 0',
-            'quantity.max' => 'Количество не может превышать 1000',
             'user_id.exists' => 'Выбранный пользователь не существует',
             'components.required' => 'Необходимо указать хотя бы один компонент',
             'components.min' => 'Необходимо указать хотя бы один компонент',
@@ -67,7 +58,6 @@ class CreateProductionTaskWithComponentsRequest extends BaseRequest
     {
         return [
             'order_id' => 'заказ',
-            'quantity' => 'количество',
             'user_id' => 'пользователь',
             'components' => 'компоненты',
             'components.*.product_id' => 'продукт',

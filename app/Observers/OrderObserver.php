@@ -39,7 +39,7 @@ class OrderObserver
             $tags = ['orders', 'statistics'];
             $this->cacheService->flushByTags($tags);
         } catch (\Exception $e) {
-            Log::error('Order cache invalidation failed: ' . $e->getMessage());
+            Log::error('Ошибка инвалидации кеша ' . $e->getMessage());
         }
     }
 }

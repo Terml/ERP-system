@@ -50,10 +50,10 @@ class UserSeeder extends Seeder
         ];
         foreach ($users as $userData) {
             $roles = $userData['roles'];
-            unset($userData['roles']); // Убрать роль, чтобы она не попала в базу Users
+            unset($userData['roles']); // убрать роль, тк нет строки в базе
             
             $user = User::create($userData);
-            $user->syncRoles($roles); // Назначаем роли пользователя через синхронизацию
+            $user->syncRoles($roles); // назначить роль юзеру
         }
     }
 }

@@ -29,7 +29,6 @@ class ProductionTaskDTOFactory
         $validated = $request->validated();
         return new CreateProductionTaskDTO(
             orderId: $validated['order_id'],
-            quantity: $validated['quantity'],
             userId: $validated['user_id'] ?? null
         );
     }

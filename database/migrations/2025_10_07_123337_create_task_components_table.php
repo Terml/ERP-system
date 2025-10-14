@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('production_task_id')->constrained('production_tasks')->onDelete('cascade');;
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');;
-            $table->integer('quantity');
+            $table->integer('quantity'); // планируемое количество
+            $table->integer('used_quantity')->default(0); // фактически использованное количество
             $table->timestamps();
 
             // Индексы

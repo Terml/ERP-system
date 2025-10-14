@@ -14,20 +14,31 @@ class UserService extends BaseService
     }
     public function createUserWithRoles(array $userData): User
     {
-        // валидация
-        $validated = validator($userData, [
-            'login' => 'required|string|unique:users,login',
-            'password' => 'required|string|min:6',
-            'roles' => 'required|array',
-            'roles.*' => 'string'
-        ])->validate();
-        return DB::transaction(function () use ($validated) {
+        return DB::transaction(function () use ($userData) {
             $user = $this->create([
-                'login' => $validated['login'],
-                'password' => Hash::make($validated['password']),
+                'login' => $userData['login'],
+                'password' => Hash::make($userData['password']),
             ]);
-            if (!empty($validated['roles'])) {
-                $user->syncRoles($validated['roles']);
+            if (!empty($userData['role_ids'])) {
+                $user->roles()->sync($userData['role_ids']);
+            }
+            return $user->load('roles');
+        });
+    }
+    public function updateUserWithRoles(int $userId, array $userData): User
+    {
+        return DB::transaction(function () use ($userId, $userData) {
+            $user = $this->findOrFail($userId);
+            $updateData = [
+                'login' => $userData['login'],
+            ];
+            if (!empty($userData['password'])) {
+                $updateData['password'] = Hash::make($userData['password']);
+            }
+            $user->update($updateData);
+
+            if (!empty($userData['role_ids'])) {
+                $user->roles()->sync($userData['role_ids']);
             }
             return $user->load('roles');
         });

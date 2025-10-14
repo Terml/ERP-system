@@ -21,12 +21,19 @@ class ProductService
         $this->model = $product;
         $this->cacheService = $cacheService;
     }
-    public function getAllProducts(): Collection
+    public function getAllProducts($request = null)
     {
-        $cacheKey = 'products:all';
-        return $this->cacheService->remember($cacheKey, function () {
-            return $this->model->orderBy('name')->get();
-        }, $this->cacheTtl);
+        $query = $this->model->orderBy('name');
+        if ($request) {
+            if ($request->has('type') && $request->input('type') !== '') {
+                $query->where('type', $request->input('type'));
+            }
+            if ($request->has('search') && $request->input('search') !== '') {
+                $search = $request->input('search');
+                $query->where('name', 'ilike', "%{$search}%");
+            }
+        }
+        return $query->paginate(15);
     }
     public function getProductsByType(string $type): Collection
     {
@@ -141,7 +148,7 @@ class ProductService
     {
         $cacheKey = 'products:select';
         return $this->cacheService->remember($cacheKey, function () {
-            return $this->model->select('id', 'name', 'type')
+            return $this->model->select('id', 'name', 'type', 'unit')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($product) {
@@ -149,6 +156,7 @@ class ProductService
                         'id' => $product->id,
                         'name' => $product->name,
                         'type' => $product->type,
+                        'unit' => $product->unit,
                     ];
                 })
                 ->toArray();

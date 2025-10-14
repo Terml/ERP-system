@@ -37,7 +37,7 @@ class CreateOrderRequest extends BaseRequest
                 'required',
                 'integer',
                 'min:1',
-                'max:1000'
+                'max:10000'
             ],
             'deadline' => [
                 'required',
@@ -55,7 +55,7 @@ class CreateOrderRequest extends BaseRequest
             'product_id.exists' => 'Выбранный продукт не существует',
             'quantity.required' => 'Количество обязательно для заполнения',
             'quantity.min' => 'Количество должно быть больше 0',
-            'quantity.max' => 'Количество не может превышать 1000',
+            'quantity.max' => 'Количество не может превышать 10000',
             'deadline.required' => 'Срок выполнения обязателен',
         ];
     }

@@ -11,6 +11,7 @@ class TaskComponent extends Model
         'production_task_id',
         'product_id',
         'quantity',
+        'used_quantity',
     ];
     public function productionTask(): BelongsTo{
         return $this->belongsTo(ProductionTask::class);

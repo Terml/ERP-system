@@ -124,7 +124,6 @@ class ServiceTest extends TestCase
     {
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
             'phone' => '+7-999-123-45-67',
             'email' => 'test@company.com',
             'address' => 'Тестовый адрес'
@@ -146,8 +145,6 @@ class ServiceTest extends TestCase
     {
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -170,9 +167,7 @@ class ServiceTest extends TestCase
     public function test_order_service_can_complete_order()
     {
         $company = Company::create([
-            'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
+            'name' => 'Тестовая компания'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -195,8 +190,6 @@ class ServiceTest extends TestCase
     {
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -219,8 +212,6 @@ class ServiceTest extends TestCase
     {
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -252,8 +243,6 @@ class ServiceTest extends TestCase
     {
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -283,8 +272,6 @@ class ServiceTest extends TestCase
     {
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -317,8 +304,6 @@ class ServiceTest extends TestCase
     {
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -358,13 +343,9 @@ class ServiceTest extends TestCase
     {
         Company::create([
             'name' => 'Компания 1',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         Company::create([
             'name' => 'Компания 2',
-            'contact_person' => 'Петр Петров',
-            'phone' => '+7-999-123-45-68'
         ]);
         $companies = $this->companyService->getAllCompanies();
         $this->assertCount(2, $companies);
@@ -373,13 +354,9 @@ class ServiceTest extends TestCase
     {
         Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         Company::create([
             'name' => 'Другая компания',
-            'contact_person' => 'Петр Петров',
-            'phone' => '+7-999-123-45-68'
         ]);
         $companies = $this->companyService->searchCompanies('Тестовая');
         $this->assertCount(1, $companies);
@@ -389,8 +366,6 @@ class ServiceTest extends TestCase
     {
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -488,8 +463,6 @@ class ServiceTest extends TestCase
         View::shouldReceive('render')->andReturn('<html>Test Order Document</html>');
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',
@@ -517,8 +490,6 @@ class ServiceTest extends TestCase
         View::shouldReceive('render')->andReturn('<html>Test Task Document</html>');
         $company = Company::create([
             'name' => 'Тестовая компания',
-            'contact_person' => 'Иван Иванов',
-            'phone' => '+7-999-123-45-67'
         ]);
         $product = Product::create([
             'name' => 'Тестовый продукт',

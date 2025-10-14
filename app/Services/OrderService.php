@@ -29,7 +29,7 @@ class OrderService extends BaseService
   {
     return DB::transaction(function () use ($orderDTO) {
       $order = $this->create($orderDTO->toArray());
-      $order = $order->load(['company', 'product']);
+      $order = $order->load(['company']);
       $this->sendOrderCreatedNotification($order);
       return $order;
     });
@@ -46,7 +46,7 @@ class OrderService extends BaseService
       // обновление заказа
       $result = $order->update($updateDTO->toArray());
       if ($result) {
-        $order = $order->fresh()->load(['company', 'product']);
+        $order = $order->fresh()->load(['company']);
         $this->sendOrderUpdatedNotification($order, $oldStatus);
       }
       return $result;
@@ -66,7 +66,7 @@ class OrderService extends BaseService
       ]);
       if ($result) {
         ProcessOrderCompletion::dispatch($order);
-        $order = $order->fresh()->load(['company', 'product']);
+        $order = $order->fresh()->load(['company']);
         $this->sendOrderCompletedNotification($order);
       }
       return $result;
@@ -85,25 +85,42 @@ class OrderService extends BaseService
         'status' => 'rejected'
       ]);
       if ($result) {
-        $order = $order->fresh()->load(['company', 'product']);
+        $order = $order->fresh()->load(['company']);
         $this->sendOrderRejectedNotification($order);
       }
       return $result;
     });
   }
-  public function getAllOrders()
+  public function getAllOrders($request = null, $user = null)
   {
-    return $this->model->with([
-      'company:id,name,contact_person,phone',
-      'product:id,name,type,unit',
+    $query = $this->model->with([
+      'company:id,name',
+      'product:id,name,unit',
       'productionTasks:id,order_id,status'
-    ])->paginate(15);
+    ]);
+    if ($user && $user->hasRole('manager') && !$user->hasRole('admin')) {
+      $query->where('status', 'completed');
+    }
+    if ($request) {
+      if ($request->has('status') && $request->input('status') !== '') {
+        $query->where('status', $request->input('status'));
+      }
+      if ($request->has('company_id') && $request->input('company_id') !== '') {
+        $query->where('company_id', $request->input('company_id'));
+      }
+      if ($request->has('search') && $request->input('search') !== '') {
+        $search = $request->input('search');
+        $query->whereHas('company', function($companyQuery) use ($search) {
+          $companyQuery->where('name', 'ilike', "%{$search}%");
+        });
+      }
+    }
+    return $query->paginate(15);
   }
   public function getOrder(int $orderId): Order
   {
     return $this->model->with([
-      'company:id,name,contact_person,phone,email',
-      'product:id,name,type,unit,price',
+      'company:id,name',
       'productionTasks' => function ($query) {
         $query->with(['user:id,login', 'components.product:id,name,type,unit']);
       }
@@ -113,7 +130,6 @@ class OrderService extends BaseService
   {
     return $this->model->onlyTrashed()->with([
       'company:id,name',
-      'product:id,name,type,unit',
       'productionTasks' => function ($query) {
         $query->onlyTrashed()->with('user:id,login');
       }
@@ -122,14 +138,12 @@ class OrderService extends BaseService
   public function getOrdersWithCompanies(): Collection
   {
     return $this->model->with([
-      'company:id,name,contact_person,phone,email,address'
-    ])->select('id', 'company_id', 'quantity', 'deadline', 'status', 'created_at')->get();
+      'company:id,name'
+    ])->select('id', 'company_id', 'deadline', 'status', 'created_at')->get();
   }
   public function getOrdersWithProducts(): Collection
   {
-    return $this->model->with([
-      'product:id,name,type,unit,description,price'
-    ])->select('id', 'product_id', 'quantity', 'deadline', 'status', 'created_at')->get();
+  return $this->model->select('id', 'deadline', 'status', 'created_at')->get();
   }
   public function getOrdersWithTasks(): Collection
   {
@@ -150,14 +164,13 @@ class OrderService extends BaseService
         $query->whereIn('status', ['wait', 'in_process']);
       }
     ])->with([
-      'company:id,name',
-      'product:id,name,type,unit'
+      'company:id,name'
     ])->get();
   }
   public function filterByCompany(int $companyId): Collection
   {
     return $this->model->where('company_id', $companyId)
-      ->with(['company:id,name', 'product:id,name,type,unit'])->get();
+      ->with(['company:id,name'])->get();
   }
   public function archiveOrder(int $orderId): bool
   {
@@ -170,8 +183,6 @@ class OrderService extends BaseService
       ArchiveOrder::create([
         'original_id' => $order->id,
         'company_id' => $order->company_id,
-        'product_id' => $order->product_id,
-        'quantity' => $order->quantity,
         'deadline' => $order->deadline,
         'status' => $order->status,
         'archived_at' => now(),
@@ -187,8 +198,6 @@ class OrderService extends BaseService
       $archivedOrder = ArchiveOrder::with(['archivedTasks'])->find($archivedOrderId);
       $restoredOrder = Order::create([ // восстановление ордера
         'company_id' => $archivedOrder->company_id,
-        'product_id' => $archivedOrder->product_id,
-        'quantity' => $archivedOrder->quantity,
         'deadline' => $archivedOrder->deadline,
         'status' => $archivedOrder->status,
         'created_at' => $archivedOrder->created_at,
@@ -207,14 +216,10 @@ class OrderService extends BaseService
   }
   public function createOrderWithLock(CreateOrderDTO $orderDTO): Order {
     return DB::transaction(function () use ($orderDTO) {
-      // блок компании и продукта
+      // блок компании
       $company = \App\Models\Company::lockForUpdate()->findOrFail($orderDTO->companyId);
-      $product = \App\Models\Product::lockForUpdate()->findOrFail($orderDTO->productId);
-      if ($product->type !== 'product') {
-        throw new \Exception('Можно создавать заказы только на готовые продукты');
-      }
       $order = $this->create($orderDTO->toArray());
-      return $order->load(['company', 'product']);
+      return $order->load(['company']);
     });
   }
   public function updateOrderWithLock(int $orderId, UpdateOrderDTO $updateDTO): bool {
@@ -312,7 +317,7 @@ class OrderService extends BaseService
             return [$order->company->name ?? 'Неизвестная компания' => $order->count];
           })
           ->toArray(),
-        'recent_orders' => $this->model->with(['company', 'product'])
+        'recent_orders' => $this->model->with(['company'])
           ->orderBy('created_at', 'desc')
           ->limit(5)
           ->get()
@@ -320,7 +325,6 @@ class OrderService extends BaseService
             return [
               'id' => $order->id,
               'company_name' => $order->company->name ?? 'Неизвестная компания',
-              'product_name' => $order->product->name ?? 'Неизвестный продукт',
               'status' => $order->status,
               'created_at' => $order->created_at->format('Y-m-d H:i:s'),
             ];
@@ -382,7 +386,6 @@ class OrderService extends BaseService
             'company_name' => $order->company->name ?? 'Неизвестная компания',
             'company_id' => $order->company_id,
             'orders_count' => $order->count,
-            'avg_quantity' => round($order->avg_quantity, 2),
           ];
         })
         ->sortByDesc('orders_count')

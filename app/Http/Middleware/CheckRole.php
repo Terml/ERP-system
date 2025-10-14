@@ -32,7 +32,7 @@ class CheckRole
         if (!$hasRole) {
             return response()->json([
                 'success' => false,
-                'message' => 'Недостаточно прав доступа. Требуемые роли: ',
+                'message' => 'Недостаточно прав доступа. Требуемые роли: ' . implode(', ', $roles),
             ], 403);
         }
         return $next($request);

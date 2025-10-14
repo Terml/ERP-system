@@ -26,13 +26,6 @@ class ProcessTaskStatusChange implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info("Обработка изменения статуса задания #{$this->task->id}", [
-                'task_id' => $this->task->id,
-                'order_id' => $this->task->order_id,
-                'old_status' => $this->oldStatus,
-                'new_status' => $this->newStatus,
-                'user_id' => $this->task->user_id
-            ]);
             switch ($this->newStatus) {
                 case 'in_process':
                     $this->handleTaskStarted();
@@ -58,26 +51,26 @@ class ProcessTaskStatusChange implements ShouldQueue
     }
     private function handleTaskStarted(): void
     {
-        Log::info("Задание #{$this->task->id} взято в работу", [
+        $this->task->update([
             'status_changed_at' => now()->toDateTimeString()
         ]);
     }
     private function handleTaskSentForInspection(): void
     {
-        Log::info("Задание #{$this->task->id} отправлено на проверку", [
+        $this->task->update([
             'status_changed_at' => now()->toDateTimeString()
         ]);
     }
     private function handleTaskCompleted(): void
     {
-        Log::info("Задание #{$this->task->id} принято ОТК", [
+        $this->task->update([
             'status_changed_at' => now()->toDateTimeString()
         ]);
         ProcessOrderCompletion::dispatch($this->task->order);
     }
     private function handleTaskRejected(): void
     {
-        Log::info("Задание #{$this->task->id} отклонено ОТК", [
+        $this->task->update([
             'status_changed_at' => now()->toDateTimeString()
         ]);
     }

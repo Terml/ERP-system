@@ -21,22 +21,8 @@ class ProductController extends Controller
     }
     public function index(Request $request): JsonResponse
     {
-        $type = $request->get('type');
-        $search = $request->get('search');
-        if ($search) {
-            $products = $this->productService->searchProducts($search);
-        } elseif ($type) {
-            $products = $this->productService->getProductsByType($type);
-        } else {
-            $products = $this->productService->getAllProducts();
-        }
-        $productsData = $products->map(function ($product) {
-            return ProductDTOFactory::createFromModel($product)->toArray();
-        });
-        return response()->json([
-            'data' => $productsData,
-            'count' => $productsData->count(),
-        ]);
+        $products = $this->productService->getAllProducts($request);
+        return response()->json($products);
     }
     public function show(int $id): JsonResponse
     {

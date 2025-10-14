@@ -29,7 +29,7 @@ class ProductionTaskPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('dispatcher');
+        return $user->hasRole('admin') || $user->hasRole('dispatcher');
     }
 
     /**
@@ -37,7 +37,13 @@ class ProductionTaskPolicy
      */
     public function update(User $user, ProductionTask $productionTask): bool
     {
-        return $user->hasRole('dispatcher');
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+        if ($user->hasRole('dispatcher')) {
+            return $productionTask->status === 'pending';
+        }
+        return false;
     }
 
     /**
@@ -49,45 +55,69 @@ class ProductionTaskPolicy
     }
     public function take(User $user, ProductionTask $productionTask): bool
     {
-        return $user->hasRole('master');
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+        return $user->hasRole('master') && $productionTask->status === 'pending';
     }
     public function updateComponents(User $user, ProductionTask $productionTask): bool
     {
+        if ($user->hasRole('admin')) {
+            return true;
+        }
         if ($user->hasRole('master')) {
-            return $productionTask->user_id === $user->id;
+            return $productionTask->status === 'in_process';
         }
         return false;
     }
     public function sendForInspection(User $user, ProductionTask $productionTask): bool
     {
+        if ($user->hasRole('admin')) {
+            return true;
+        }
         if ($user->hasRole('master')) {
-            return $productionTask->user_id === $user->id;
+            return $productionTask->status === 'in_process';
         }
         return false;
     }
     public function acceptByOTK(User $user, ProductionTask $productionTask): bool
     {
-        return $user->hasRole('otk');
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+        return $user->hasRole('otk') && $productionTask->status === 'checking';
     }
     public function rejectByOTK(User $user, ProductionTask $productionTask): bool
     {
-        return $user->hasRole('otk');
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+        return $user->hasRole('otk') && $productionTask->status === 'checking';
     }
     public function returnToMaster(User $user, ProductionTask $productionTask): bool
     {
-        return $user->hasRole('otk');
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+        return $user->hasRole('otk') && $productionTask->status === 'checking';
     }
     public function addComponent(User $user, ProductionTask $productionTask): bool
     {
+        if ($user->hasRole('admin')) {
+            return true;
+        }
         if ($user->hasRole('master')) {
-            return $productionTask->user_id === $user->id;
+            return $productionTask->status === 'in_process';
         }
         return false;
     }
     public function removeComponent(User $user, ProductionTask $productionTask): bool
     {
+        if ($user->hasRole('admin')) {
+            return true;
+        }
         if ($user->hasRole('master')) {
-            return $productionTask->user_id === $user->id;
+            return $productionTask->status === 'in_process';
         }
         return false;
     }

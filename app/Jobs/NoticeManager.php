@@ -40,7 +40,6 @@ class NoticeManager implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info("Сохранение уведомления для менеджеров о заказе #{$this->order->id}, событие: {$this->eventType}");
             $managers = $this->getManagersToNotify();
             if ($managers->isEmpty()) {
                 Log::warning("Не найдено менеджеров для уведомления о заказе #{$this->order->id}");
@@ -49,7 +48,6 @@ class NoticeManager implements ShouldQueue
             foreach ($managers as $manager) {
                 $this->sendNotificationToManager($manager);
             }
-            Log::info("Уведомления сохранены для {$managers->count()} менеджеров о заказе #{$this->order->id}");
         } catch (\Exception $e) {
             Log::error("Ошибка сохранения уведомления о заказе #{$this->order->id}: " . $e->getMessage());
             throw $e;
@@ -71,14 +69,13 @@ class NoticeManager implements ShouldQueue
         try {
             $notificationData = $this->prepareNotificationData($manager);
             $this->saveNotification($manager, $notificationData);
-            Log::info("Уведомление сохранено для менеджера {$manager->login} о заказе #{$this->order->id}");
         } catch (\Exception $e) {
             Log::error("Ошибка сохранения уведомления для менеджера {$manager->login}: " . $e->getMessage());
         }
     }
     protected function prepareNotificationData(User $manager): array
     {
-        $order = $this->order->load(['company', 'product']);
+        $order = $this->order->load(['company']);
         return [
             'manager' => $manager,
             'order' => $order,
@@ -106,9 +103,8 @@ class NoticeManager implements ShouldQueue
     {
         $order = $this->order;
         $companyName = $order->company->name ?? 'Неизвестная компания';
-        $productName = $order->product->name ?? 'Неизвестный продукт';
         return match ($this->eventType) {
-            'created' => "Создан новый заказ #{$order->id} от компании '{$companyName}' на продукт '{$productName}' в количестве {$order->quantity} " . ($order->product->unit ?? 'шт') . ". Срок выполнения: {$order->deadline}.",
+            'created' => "Создан новый заказ #{$order->id} от компании '{$companyName}'. Срок выполнения: {$order->deadline}.",
             'updated' => "Заказ #{$order->id} от компании '{$companyName}' был обновлен. Текущий статус: {$this->getStatusText($order->status)}.",
             'status_changed' => "Изменен статус заказа #{$order->id} от компании '{$companyName}' на '{$this->getStatusText($order->status)}'.",
             'completed' => "Заказ #{$order->id} от компании '{$companyName}' успешно завершен и принят ОТК.",
@@ -136,8 +132,6 @@ class NoticeManager implements ShouldQueue
                     'type' => $this->eventType,
                     'order_id' => $this->order->id,
                     'company_name' => $this->order->company->name ?? 'Неизвестная компания',
-                    'product_name' => $this->order->product->name ?? 'Неизвестный продукт',
-                    'quantity' => $this->order->quantity,
                     'deadline' => $this->order->deadline,
                     'status' => $this->order->status,
                     'title' => $data['event_title'],

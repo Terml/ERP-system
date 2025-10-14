@@ -41,16 +41,7 @@ class OrderController extends Controller
     }
     public function index(Request $request): OrderCollection
     {
-        $orders = $this->orderService->getAllOrders();
-        if ($request->has('status')) {
-            $orders = $orders->where('status', $request->input('status'));
-        }
-        if ($request->has('company_id')) {
-            $orders = $orders->where('company_id', $request->input('company_id'));
-        }
-        if ($request->has('product_id')) {
-            $orders = $orders->where('product_id', $request->input('product_id'));
-        }
+        $orders = $this->orderService->getAllOrders($request, $request->user());
         return new OrderCollection($orders);
     }
     public function show(int $orderId): OrderResource

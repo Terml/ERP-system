@@ -39,7 +39,7 @@ class RoleObserver
             $tags = ['roles', 'reference_data', 'statistics'];
             $this->cacheService->flushByTags($tags);
         } catch (\Exception $e) {
-            Log::error('Role cache invalidation failed: ' . $e->getMessage());
+            Log::error('Ошибка инвалидации кеша ' . $e->getMessage());
         }
     }
 }

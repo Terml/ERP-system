@@ -11,8 +11,6 @@ class ArchiveOrder extends Model
     protected $fillable = [
         'original_id',
         'company_id',
-        'product_id',
-        'quantity',
         'deadline',
         'status',
         'archived_at',

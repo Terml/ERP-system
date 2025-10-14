@@ -16,17 +16,16 @@ class ProductionTaskResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'order' => [
-                'id' => $this->order->id,
-                'company_name' => $this->order->company->name,
-                'product_name' => $this->order->product->name,
-                'deadline' => $this->order->deadline,
-            ],
-            'user' => $this->when($this->user, [
-                'id' => $this->user->id,
-                'login' => $this->user->login,
+            'order_id' => $this->order_id,
+            'order' => $this->when($this->order, [
+                'id' => $this->order?->id,
+                'company_name' => $this->order?->company?->name,
+                'deadline' => $this->order?->deadline,
             ]),
-            'quantity' => $this->quantity,
+            'user' => $this->when($this->user, [
+                'id' => $this->user?->id,
+                'login' => $this->user?->login,
+            ]),
             'status' => $this->status,
             'components' => TaskComponentResource::collection($this->whenLoaded('components')),
             'components_count' => $this->whenLoaded('components', function () {

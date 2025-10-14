@@ -5,16 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Производственное задание номер {{ $task->id }}</title>
-    <link rel="stylesheet" href="{{ asset('css/documents.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
 
 <body>
-    <button class="print-button task-print" onclick="window.print()">🖨️ Печать</button>
-
     <div class="document">
         <div class="header">
-            <h1>ПРОИЗВОДСТВЕННОЕ ЗАДАНИЕ</h1>
-            <div class="subtitle">Номер {{ $task->id }} от {{ $task->created_at->format('d.m.Y') }}</div>
+            <div class="header-content">
+                <div class="nav-controls">
+                    <button class="nav-button" onclick="navigateTask('prev')" id="prevBtn">←</button>
+                    <button class="nav-button" onclick="navigateTask('next')" id="nextBtn">→</button>
+                </div>
+                <div class="title-section">
+                    <h1>ПРОИЗВОДСТВЕННОЕ ЗАДАНИЕ</h1>
+                    <div class="subtitle">№ {{ $task->id }} от {{ $task->created_at->format('d.m.Y') }}</div>
+                </div>
+                <div class="print-control">
+                    <button class="print-button" onclick="window.print()">Печать</button>
+                </div>
+            </div>
         </div>
 
         <div class="task-info">
@@ -45,10 +54,6 @@
                 <div class="info-row">
                     <span class="info-label">Мастер:</span>
                     <span class="info-value">{{ $master->login ?? 'Не назначен' }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Email:</span>
-                    <span class="info-value">{{ $master->email ?? 'Не указан' }}</span>
                 </div>
             </div>
         </div>
@@ -87,7 +92,8 @@
                         <th>Наименование</th>
                         <th>Тип</th>
                         <th>Единица</th>
-                        <th>Количество</th>
+                        <th>Планируемое</th>
+                        <th>Использовано</th>
                         <th>Статус</th>
                     </tr>
                 </thead>
@@ -95,12 +101,26 @@
                     @foreach($components as $index => $component)
                     <tr>
                         <td>{{ $index + 1 }}</td>
-                        <td>{{ $component->name }}</td>
-                        <td>{{ $component->type === 'product' ? 'Продукт' : 'Материал' }}</td>
-                        <td>{{ $component->unit }}</td>
-                        <td><strong>{{ $component->quantity }}</strong></td>
+                        <td>{{ $component->product->name ?? 'Не указано' }}</td>
+                        <td>{{ $component->product->type === 'product' ? 'Продукт' : 'Материал' }}</td>
+                        <td>{{ $component->product->unit ?? 'Не указано' }}</td>
+                        <td><strong>{{ $component->quantity ?? 0 }}</strong></td>
+                        <td><strong>{{ $component->used_quantity ?? 0 }}</strong></td>
                         <td>
-                            <span class="status-badge status-completed">{{ $component->status }}</span>
+                            @php
+                                $status = 'wait';
+                                $statusClass = 'status-wait';
+                                if ($component->used_quantity > 0) {
+                                    if ($component->used_quantity >= $component->quantity) {
+                                        $status = 'completed';
+                                        $statusClass = 'status-completed';
+                                    } else {
+                                        $status = 'in_process';
+                                        $statusClass = 'status-in-process';
+                                    }
+                                }
+                            @endphp
+                            <span class="status-badge {{ $statusClass }}">{{ $status }}</span>
                         </td>
                     </tr>
                     @endforeach
@@ -113,11 +133,41 @@
             @endif
         </div>
 
-        <div class="footer">
-            <p>Документ сгенерирован: {{ $generated_at->format('d.m.Y H:i:s') }}</p>
-            <p>Система управления производством</p>
-        </div>
     </div>
+
+    <script>
+        const currentTaskId = {{ $task->id }};
+        
+        function navigateTask(direction) {
+            const url = new URL(window.location);
+            url.searchParams.set('task_id', currentTaskId);
+            url.searchParams.set('direction', direction);
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.task_id) {
+                        window.location.href = `/documents/task?task_id=${data.task_id}`;
+                    } else {
+                        alert(direction === 'prev' ? 'Это первое задание' : 'Это последнее задание');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка навигации:', error);
+                });
+        }
+        
+        window.addEventListener('beforeprint', function() {
+            document.querySelector('.nav-controls').style.display = 'none';
+            document.querySelector('.print-control').style.display = 'none';
+        });
+        
+        window.addEventListener('afterprint', function() {
+            document.querySelector('.nav-controls').style.display = 'flex';
+            document.querySelector('.print-control').style.display = 'block';
+        });
+    </script>
+
 </body>
 
 </html>

@@ -16,11 +16,10 @@ class DocumentService
         if ($order->status !== 'completed') {
             throw new \Exception('Печать доступна только для завершенных заказов');
         }
-        $order->load(['company', 'product']);
+        $order->load(['company']);
         $data = [
             'order' => $order,
             'company' => $order->company,
-            'product' => $order->product,
             'generated_at' => now(),
             'document_type' => 'order',
         ];
@@ -41,12 +40,11 @@ class DocumentService
         if ($task->status !== 'completed') {
             throw new \Exception('Печать доступна только для завершенных заданий');
         }
-        $task->load(['order.company', 'order.product', 'user', 'components']);
+        $task->load(['order.company', 'user', 'components']);
         $data = [
             'task' => $task,
             'order' => $task->order,
             'company' => $task->order->company,
-            'product' => $task->order->product,
             'master' => $task->user,
             'components' => $task->components,
             'generated_at' => now(),

@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::create('production_tasks', function (Blueprint $table) {
             $table->id();
             $table->foreignID('order_id')->constrained('orders')->onDelete('cascade');;
-            $table->foreignID('user_id')->constrained('users')->onDelete('cascade');;
-            $table->integer('quantity');
+            $table->foreignID('user_id')->nullable()->constrained('users')->onDelete('set null');;
             $table->enum('status', [
                 'wait', // создание заказа и задания в производстве
                 'in_process', // мастер взял задание в производство
+                'checking', // задание отправлено на проверку ОТК
                 'completed', // принятие ОТК
                 'rejected', // отвергнуто ОТК
             ]);

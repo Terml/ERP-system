@@ -23,6 +23,7 @@ class TaskComponentResource extends JsonResource
                 'unit' => $this->product->unit,
             ],
             'quantity' => $this->quantity,
+            'used_quantity' => $this->used_quantity,
             'created_at' => $this->created_at,
         ];
     }

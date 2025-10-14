@@ -13,7 +13,6 @@ class ProductionTask extends Model
     protected $fillable = [
         'order_id',
         'user_id',
-        'quantity',
         'status',
     ];
     public function order(): BelongsTo{
