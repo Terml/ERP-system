@@ -286,23 +286,6 @@ class ProductionTaskService extends BaseService
             ];
         });
     }
-    public function rejectByOTKWithReturn(
-        int $taskId, 
-        int $otkUserId
-    ): ProductionTask {
-        return DB::transaction(function () use ($taskId, $otkUserId) {
-            $task = ProductionTask::lockForUpdate()->findOrFail($taskId);
-            $oldStatus = $task->status;
-            if ($task->status !== 'checking') {
-                throw new \Exception('Задание можно отклонить только в статусе "checking"');
-            }
-            $task->update([
-                'status' => 'in_process'
-            ]);
-            ProcessTaskStatusChange::dispatch($task, $oldStatus, 'in_process');
-            return $task->fresh();
-        });
-    }
     public function updateComponentWithLock(int $componentId, array $updateData): TaskComponent {
         return DB::transaction(function () use ($componentId, $updateData) {
             // блок задания и компонента

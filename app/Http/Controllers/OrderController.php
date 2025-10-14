@@ -13,11 +13,13 @@ use App\Models\Order;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\OrderCollection;
 use Illuminate\Http\JsonResponse;
+use App\Services\CacheService;
 
 class OrderController extends Controller
 {
     public function __construct(
-        private OrderService $orderService
+        private OrderService $orderService,
+        private CacheService $cacheService
     ) {}
     public function store(CreateOrderRequest $request): JsonResponse
     {
@@ -186,6 +188,133 @@ class OrderController extends Controller
                 'success' => false,
                 'message' => $e->getMessage()
             ], 400);
+        }
+    }
+    public function statistics(): JsonResponse
+    {
+        try {
+            $statistics = $this->orderService->getOrderStatistics();
+            return response()->json([
+                'success' => true,
+                'data' => $statistics
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения статистики заказов',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function statisticsByStatus(): JsonResponse
+    {
+        try {
+            $statistics = $this->orderService->getOrdersByStatusStatistics();
+            return response()->json([
+                'success' => true,
+                'data' => $statistics
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения статистики по статусам',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function statisticsByMonth(Request $request): JsonResponse
+    {
+        try {
+            $months = $request->input('months', 12);
+            $statistics = $this->orderService->getOrdersByMonthStatistics($months);
+            return response()->json([
+                'success' => true,
+                'data' => $statistics,
+                'period_months' => $months
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения статистики по месяцам',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function statisticsByCompany(): JsonResponse
+    {
+        try {
+            $statistics = $this->orderService->getOrdersByCompanyStatistics();
+            return response()->json([
+                'success' => true,
+                'data' => $statistics
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения статистики по компаниям',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function performanceMetrics(): JsonResponse
+    {
+        try {
+            $metrics = $this->orderService->getOrderPerformanceMetrics();
+            return response()->json([
+                'success' => true,
+                'data' => $metrics
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения метрик производительности',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function clearCache(): JsonResponse
+    {
+        try {
+            $this->orderService->clearOrderCache();
+            return response()->json([
+                'success' => true,
+                'message' => 'Кеш статистики заказов очищен'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка очистки кеша',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function cacheInfo(): JsonResponse
+    {
+        try {
+            $cacheKeys = [
+                'orders:statistics',
+                'orders:by_status',
+                'orders:by_month:12',
+                'orders:by_company',
+                'orders:performance_metrics',
+            ];
+            $cacheInfo = [];
+            foreach ($cacheKeys as $key) {
+                $cacheInfo[$key] = [
+                    'exists' => $this->cacheService->has($key),
+                    'ttl' => $this->cacheService->ttl($key),
+                ];
+            }
+            return response()->json([
+                'success' => true,
+                'data' => $cacheInfo
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения информации о кеше',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

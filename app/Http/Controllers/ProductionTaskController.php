@@ -233,7 +233,7 @@ class ProductionTaskController extends Controller
             if ($request->input('decision') !== 'accepted') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Используйте метод rejectByOTKWithReturn для отклонения'
+                    'message' => 'Используйте метод rejectByOTK для отклонения'
                 ], 400);
             }
             $result = $this->taskService->acceptByOTKWithOrderCompletion(
@@ -248,33 +248,6 @@ class ProductionTaskController extends Controller
                     'order' => $result['order'],
                     'order_completed' => $result['order_completed']
                 ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
-        }
-    }
-    public function rejectByOTKWithReturn(OTKDecisionWithCompletionRequest $request, int $taskId): JsonResponse
-    {
-        try {
-            $task = $this->taskService->getTask($taskId);
-            $this->authorize('rejectByOTK', $task);
-            if ($request->input('decision') !== 'rejected') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Используйте метод acceptByOTKWithCompletion для принятия'
-                ], 400);
-            }
-            $task = $this->taskService->rejectByOTKWithReturn(
-                $taskId,
-                $request->input('otk_user_id')
-            );
-            return response()->json([
-                'success' => true,
-                'message' => 'Задание отклонено ОТК и возвращено в работу',
-                'data' => new ProductionTaskResource($task)
             ]);
         } catch (\Exception $e) {
             return response()->json([

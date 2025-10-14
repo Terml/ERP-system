@@ -15,6 +15,7 @@ class CreateProductionTaskDTO
             'order_id' => $this->orderId,
             'quantity' => $this->quantity,
             'user_id' => $this->userId,
+            'status' => 'wait',
         ];
     }
 }

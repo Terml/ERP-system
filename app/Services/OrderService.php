@@ -12,30 +12,43 @@ use Illuminate\Support\Facades\DB;
 use App\Models\ArchiveProductionTask;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Database\Eloquent\Collection;
+use App\Services\CacheService;
+use App\Jobs\NoticeManager;
+use Illuminate\Support\Facades\Log;
 
 class OrderService extends BaseService
 {
-  public function __construct(Order $order)
+  protected CacheService $cacheService;
+  protected int $cacheTtl = 1800;
+  public function __construct(Order $order, CacheService $cacheService)
   {
     parent::__construct($order);
+    $this->cacheService = $cacheService;
   }
   public function createOrder(CreateOrderDTO $orderDTO): Order
   {
     return DB::transaction(function () use ($orderDTO) {
       $order = $this->create($orderDTO->toArray());
-      return $order->load(['company', 'product']);
+      $order = $order->load(['company', 'product']);
+      $this->sendOrderCreatedNotification($order);
+      return $order;
     });
   }
   public function updateOrder(int $orderId, UpdateOrderDTO $updateDTO): bool
   {
     return DB::transaction(function () use ($orderId, $updateDTO) {
       $order = $this->findOrFail($orderId);
+      $oldStatus = $order->status;
       // проверка
       if (!in_array($order->status, ['wait', 'in_process'])) {
         throw new \Exception('Заказ можно обновить только в статусе "wait" или "in_process"');
       }
       // обновление заказа
       $result = $order->update($updateDTO->toArray());
+      if ($result) {
+        $order = $order->fresh()->load(['company', 'product']);
+        $this->sendOrderUpdatedNotification($order, $oldStatus);
+      }
       return $result;
     });
   }
@@ -53,6 +66,8 @@ class OrderService extends BaseService
       ]);
       if ($result) {
         ProcessOrderCompletion::dispatch($order);
+        $order = $order->fresh()->load(['company', 'product']);
+        $this->sendOrderCompletedNotification($order);
       }
       return $result;
     });
@@ -69,6 +84,10 @@ class OrderService extends BaseService
       $result = $order->update([
         'status' => 'rejected'
       ]);
+      if ($result) {
+        $order = $order->fresh()->load(['company', 'product']);
+        $this->sendOrderRejectedNotification($order);
+      }
       return $result;
     });
   }
@@ -268,5 +287,186 @@ class OrderService extends BaseService
         'rejected' => $result
       ];
     });
+  }
+  public function getOrderStatistics(): array
+  {
+    $cacheKey = 'orders:statistics';
+    $tags = ['orders', 'statistics'];
+    return $this->cacheService->rememberWithTags($cacheKey, $tags, function () {
+      return [
+        'total_orders' => $this->model->count(),
+        'orders_by_status' => $this->model->selectRaw('status, COUNT(*) as count')
+          ->groupBy('status')
+          ->pluck('count', 'status')
+          ->toArray(),
+        'orders_by_month' => $this->model->selectRaw('TO_CHAR(created_at, \'YYYY-MM\') as month, COUNT(*) as count')
+          ->groupBy('month')
+          ->orderBy('month')
+          ->pluck('count', 'month')
+          ->toArray(),
+        'orders_by_company' => $this->model->with('company')
+          ->selectRaw('company_id, COUNT(*) as count')
+          ->groupBy('company_id')
+          ->get()
+          ->mapWithKeys(function ($order) {
+            return [$order->company->name ?? 'Неизвестная компания' => $order->count];
+          })
+          ->toArray(),
+        'recent_orders' => $this->model->with(['company', 'product'])
+          ->orderBy('created_at', 'desc')
+          ->limit(5)
+          ->get()
+          ->map(function ($order) {
+            return [
+              'id' => $order->id,
+              'company_name' => $order->company->name ?? 'Неизвестная компания',
+              'product_name' => $order->product->name ?? 'Неизвестный продукт',
+              'status' => $order->status,
+              'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+            ];
+          })
+          ->toArray(),
+      ];
+    }, $this->cacheTtl);
+  }
+  public function getOrdersByStatusStatistics(): array
+  {
+    $cacheKey = 'orders:by_status';
+    $tags = ['orders', 'statistics', 'by_status'];
+    return $this->cacheService->rememberWithTags($cacheKey, $tags, function () {
+      $statuses = ['wait', 'in_process', 'completed', 'rejected'];
+      $result = [];
+      foreach ($statuses as $status) {
+        $result[$status] = [
+          'count' => $this->model->where('status', $status)->count(),
+          'percentage' => 0,
+        ];
+      }
+      $total = array_sum(array_column($result, 'count'));
+      if ($total > 0) {
+        foreach ($result as $status => $data) {
+          $result[$status]['percentage'] = round(($data['count'] / $total) * 100, 2);
+        }
+      }
+      return $result;
+    }, $this->cacheTtl);
+  }
+  public function getOrdersByMonthStatistics(int $months = 12): array
+  {
+    $cacheKey = "orders:by_month:{$months}";
+    $tags = ['orders', 'statistics', 'by_month'];
+    return $this->cacheService->rememberWithTags($cacheKey, $tags, function () use ($months) {
+      $startDate = now()->subMonths($months - 1)->startOfMonth();
+      return $this->model->selectRaw('TO_CHAR(created_at, \'YYYY-MM\') as month, COUNT(*) as count')
+        ->where('created_at', '>=', $startDate)
+        ->groupBy('month')
+        ->orderBy('month')
+        ->get()
+        ->mapWithKeys(function ($order) {
+          return [$order->month => $order->count];
+        })
+        ->toArray();
+    }, $this->cacheTtl);
+  }
+  public function getOrdersByCompanyStatistics(): array
+  {
+    $cacheKey = 'orders:by_company';
+    $tags = ['orders', 'statistics', 'by_company'];
+    return $this->cacheService->rememberWithTags($cacheKey, $tags, function () {
+      return $this->model->with('company')
+        ->selectRaw('company_id, COUNT(*) as count, AVG(quantity) as avg_quantity')
+        ->groupBy('company_id')
+        ->get()
+        ->map(function ($order) {
+          return [
+            'company_name' => $order->company->name ?? 'Неизвестная компания',
+            'company_id' => $order->company_id,
+            'orders_count' => $order->count,
+            'avg_quantity' => round($order->avg_quantity, 2),
+          ];
+        })
+        ->sortByDesc('orders_count')
+        ->values()
+        ->toArray();
+    }, $this->cacheTtl);
+  }
+  public function getOrderPerformanceMetrics(): array
+  {
+    $cacheKey = 'orders:performance_metrics';
+    $tags = ['orders', 'statistics', 'performance'];
+    return $this->cacheService->rememberWithTags($cacheKey, $tags, function () {
+      $totalOrders = $this->model->count();
+      $completedOrders = $this->model->where('status', 'completed')->count();
+      $rejectedOrders = $this->model->where('status', 'rejected')->count();
+      $inProcessOrders = $this->model->where('status', 'in_process')->count();
+      return [
+        'completion_rate' => $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100, 2) : 0,
+        'rejection_rate' => $totalOrders > 0 ? round(($rejectedOrders / $totalOrders) * 100, 2) : 0,
+        'in_process_rate' => $totalOrders > 0 ? round(($inProcessOrders / $totalOrders) * 100, 2) : 0,
+        'total_orders' => $totalOrders,
+        'completed_orders' => $completedOrders,
+        'rejected_orders' => $rejectedOrders,
+        'in_process_orders' => $inProcessOrders,
+      ];
+    }, $this->cacheTtl);
+  }
+  public function invalidateOrderCache(): void
+  {
+    $tags = ['orders', 'statistics'];
+    $this->cacheService->flushByTags($tags);
+  }
+  public function clearOrderCache(): void
+  {
+    $this->invalidateOrderCache();
+  }
+  public function sendOrderCreatedNotification(Order $order): void
+  {
+    try {
+      NoticeManager::dispatch($order, 'created');
+    } catch (\Exception $e) {
+      Log::error("Ошибка сохранения уведомления о создании заказа #{$order->id}: " . $e->getMessage());
+    }
+  }
+  public function sendOrderUpdatedNotification(Order $order, string $oldStatus): void
+  {
+    try {
+      $newStatus = $order->status;
+      NoticeManager::dispatch($order, 'updated', ['old_status' => $oldStatus]);
+      if ($oldStatus !== $newStatus) {
+        NoticeManager::dispatch($order, 'status_changed', ['old_status' => $oldStatus, 'new_status' => $newStatus]);
+      }
+    } catch (\Exception $e) {
+      Log::error("Ошибка сохранения уведомления об обновлении заказа #{$order->id}: " . $e->getMessage());
+    }
+  }
+  public function sendOrderCompletedNotification(Order $order): void
+  {
+    try {
+      NoticeManager::dispatch($order, 'completed');
+    } catch (\Exception $e) {
+      Log::error("Ошибка сохранения уведомления о завершении заказа #{$order->id}: " . $e->getMessage());
+    }
+  }
+  public function sendOrderRejectedNotification(Order $order): void
+  {
+    try {
+      NoticeManager::dispatch($order, 'rejected');
+    } catch (\Exception $e) {
+      Log::error("Ошибка сохранения уведомления об отклонении заказа #{$order->id}: " . $e->getMessage());
+    }
+  }
+  public function sendNotificationToSpecificManager(Order $order, string $eventType, int $managerId, array $additionalData = []): void
+  {
+    try {
+      NoticeManager::dispatch($order, $eventType, $additionalData, $managerId);
+    } catch (\Exception $e) {
+      Log::error("Ошибка сохранения уведомления для менеджера #{$managerId} о заказе #{$order->id}: " . $e->getMessage());
+    }
+  }
+  public function getManagers()
+  {
+    return \App\Models\User::whereHas('roles', function ($query) {
+      $query->where('role', 'manager');
+    })->get();
   }
 }

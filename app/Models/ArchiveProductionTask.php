@@ -7,29 +7,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ArchiveProductionTask extends Model
 {
-    protected $table = 'archived_orders';
+    protected $table = 'archived_production_tasks';
     protected $fillable = [
         'original_id',
-        'company_id',
-        'product_id',
+        'original_order_id',
+        'user_id',
         'quantity',
-        'deadline',
         'status',
         'archived_at',
     ];
     protected function casts(): array
     {
         return [
-            'deadline' => 'date',
             'archived_at' => 'datetime',
         ];
     }
-    public function company(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Company::class);
-    }
-    public function product(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(User::class);
     }
 }

@@ -25,4 +25,7 @@ class ProductionTask extends Model
     public function taskComponents(): HasMany{
         return $this->hasMany(TaskComponent::class);
     }
+    public function components(): HasMany{
+        return $this->hasMany(TaskComponent::class);
+    }
 }

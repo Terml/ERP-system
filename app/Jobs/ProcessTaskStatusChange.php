@@ -58,32 +58,27 @@ class ProcessTaskStatusChange implements ShouldQueue
     }
     private function handleTaskStarted(): void
     {
-        $this->task->update(['taken_at' => now()]);
-        
         Log::info("Задание #{$this->task->id} взято в работу", [
-            'taken_at' => now()->toDateTimeString()
+            'status_changed_at' => now()->toDateTimeString()
         ]);
     }
     private function handleTaskSentForInspection(): void
     {
-        $this->task->update(['sent_for_inspection_at' => now()]);
         Log::info("Задание #{$this->task->id} отправлено на проверку", [
-            'sent_for_inspection_at' => now()->toDateTimeString()
+            'status_changed_at' => now()->toDateTimeString()
         ]);
     }
     private function handleTaskCompleted(): void
     {
-        $this->task->update(['accepted_at' => now()]);
         Log::info("Задание #{$this->task->id} принято ОТК", [
-            'accepted_at' => now()->toDateTimeString()
+            'status_changed_at' => now()->toDateTimeString()
         ]);
         ProcessOrderCompletion::dispatch($this->task->order);
     }
     private function handleTaskRejected(): void
     {
-        $this->task->update(['rejected_at' => now()]);
         Log::info("Задание #{$this->task->id} отклонено ОТК", [
-            'rejected_at' => now()->toDateTimeString()
+            'status_changed_at' => now()->toDateTimeString()
         ]);
     }
     public function failed(\Throwable $exception): void

@@ -13,10 +13,10 @@ class Role extends Model
     ];
     public function users()
     {
-        return $this->belongsToMany(User::class);
+        return $this->belongsToMany(User::class, 'user_roles');
     }
     public function getUsers(): Collection
     { // пользователи с определенной ролью
-        return $this->users;
+        return $this->users()->get();
     }
 }

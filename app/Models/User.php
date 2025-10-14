@@ -53,6 +53,10 @@ class User extends Authenticatable
     { // проверка на роль
         return $this->roles()->where('role', $roleName)->exists();
     }
+    public function hasAnyRole(array $roleNames): bool
+    { // проверка на любую из ролей
+        return $this->roles()->whereIn('role', $roleNames)->exists();
+    }
     public function getRoles(): Collection
     { // проверка на все роли пользователи
         return $this->roles;

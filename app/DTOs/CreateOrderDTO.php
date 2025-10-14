@@ -17,6 +17,7 @@ class CreateOrderDTO
             'product_id' => $this->productId,
             'quantity' => $this->quantity,
             'deadline' => $this->deadline,
+            'status' => 'wait',
         ];
     }
 }

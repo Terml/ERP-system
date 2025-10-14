@@ -9,12 +9,18 @@ use App\Services\CompanyService;
 use App\Services\ProductService;
 use App\Services\UserService;
 use App\Services\RoleService;
+use App\Services\CacheService;
+use App\Services\DocumentService;
 use App\Models\Order;
 use App\Models\ProductionTask;
 use App\Models\Company;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Role;
+use App\Observers\ProductObserver;
+use App\Observers\OrderObserver;
+use App\Observers\RoleObserver;
+use App\Observers\CompanyObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -47,23 +53,27 @@ class AppServiceProvider extends ServiceProvider
         //     return new RoleService($app->make(Role::class));
         // });
         $this->app->singleton(OrderService::class, function ($app) {
-            return new OrderService($app->make(Order::class));
+            return new OrderService($app->make(Order::class), $app->make(CacheService::class));
         });
         $this->app->singleton(ProductionTaskService::class, function ($app) {
             return new ProductionTaskService($app->make(ProductionTask::class));
         });
         $this->app->singleton(CompanyService::class, function ($app) {
-            return new CompanyService($app->make(Company::class));
+            return new CompanyService($app->make(Company::class), $app->make(CacheService::class));
         });
         $this->app->singleton(ProductService::class, function ($app) {
-            return new ProductService($app->make(Product::class));
+            return new ProductService($app->make(Product::class), $app->make(CacheService::class));
         });
         $this->app->singleton(UserService::class, function ($app) {
             return new UserService($app->make(User::class));
         });
         $this->app->singleton(RoleService::class, function ($app) {
-            return new RoleService($app->make(Role::class));
+            return new RoleService($app->make(Role::class), $app->make(CacheService::class));
         });
+        $this->app->singleton(CacheService::class, function ($app) {
+            return new CacheService();
+        });
+        $this->app->singleton(DocumentService::class);
     }
 
     /**
@@ -71,6 +81,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // автоматическая инвалидация кеша
+        Product::observe(ProductObserver::class);
+        Order::observe(OrderObserver::class);
+        Role::observe(RoleObserver::class);
+        Company::observe(CompanyObserver::class);
     }
 }

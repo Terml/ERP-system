@@ -42,8 +42,7 @@ class ProcessOrderCompletion implements ShouldQueue
             $totalTasks = $tasks->count();
             if ($completedTasks === $totalTasks && $totalTasks > 0) {
                 $this->order->update([
-                    'status' => 'completed',
-                    'completed_at' => now()
+                    'status' => 'completed'
                 ]);
                 Log::info("Заказ #{$this->order->id} автоматически завершен", [
                     'completed_tasks' => $completedTasks,
