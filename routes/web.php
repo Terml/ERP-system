@@ -43,6 +43,13 @@ Route::get('/admin', function () {
     }
     return redirect('/login');
 });
+Route::get('/statistics', function () {
+    if (Auth::check()) {
+        $user = Auth::user()->load('roles');
+        return view('app', compact('user'));
+    }
+    return redirect('/login');
+});
 Route::get('/documents/order', function (Request $request) {
     if (Auth::check()) {
         if ($request->has('order_id') && $request->has('direction')) {

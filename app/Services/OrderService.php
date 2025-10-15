@@ -110,7 +110,7 @@ class OrderService extends BaseService
       }
       if ($request->has('search') && $request->input('search') !== '') {
         $search = $request->input('search');
-        $query->whereHas('company', function($companyQuery) use ($search) {
+        $query->whereHas('company', function ($companyQuery) use ($search) {
           $companyQuery->where('name', 'ilike', "%{$search}%");
         });
       }
@@ -143,7 +143,7 @@ class OrderService extends BaseService
   }
   public function getOrdersWithProducts(): Collection
   {
-  return $this->model->select('id', 'deadline', 'status', 'created_at')->get();
+    return $this->model->select('id', 'deadline', 'status', 'created_at')->get();
   }
   public function getOrdersWithTasks(): Collection
   {
@@ -214,7 +214,8 @@ class OrderService extends BaseService
       ];
     });
   }
-  public function createOrderWithLock(CreateOrderDTO $orderDTO): Order {
+  public function createOrderWithLock(CreateOrderDTO $orderDTO): Order
+  {
     return DB::transaction(function () use ($orderDTO) {
       // блок компании
       $company = \App\Models\Company::lockForUpdate()->findOrFail($orderDTO->companyId);
@@ -222,7 +223,8 @@ class OrderService extends BaseService
       return $order->load(['company']);
     });
   }
-  public function updateOrderWithLock(int $orderId, UpdateOrderDTO $updateDTO): bool {
+  public function updateOrderWithLock(int $orderId, UpdateOrderDTO $updateDTO): bool
+  {
     return DB::transaction(function () use ($orderId, $updateDTO) {
       // блок заказа
       $order = Order::lockForUpdate()->findOrFail($orderId);
@@ -237,7 +239,8 @@ class OrderService extends BaseService
       return $order->update($updateDTO->toArray());
     });
   }
-  public function completeOrderWithLock(int $orderId): array {
+  public function completeOrderWithLock(int $orderId): array
+  {
     return DB::transaction(function () use ($orderId) {
       // блок заказа
       $order = Order::lockForUpdate()->findOrFail($orderId);
@@ -265,7 +268,8 @@ class OrderService extends BaseService
       ];
     });
   }
-  public function rejectOrderWithLock(int $orderId): array {
+  public function rejectOrderWithLock(int $orderId): array
+  {
     return DB::transaction(function () use ($orderId) {
       // блок заказа
       $order = Order::lockForUpdate()->findOrFail($orderId);

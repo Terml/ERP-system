@@ -336,6 +336,21 @@ class ProductionTaskService extends BaseService
             return $component->delete();
         });
     }
+    public function getTaskStatistics(): array
+    {
+        return [
+            'total_tasks' => ProductionTask::count(),
+            'tasks_by_status' => ProductionTask::selectRaw('status, COUNT(*) as count')
+                ->groupBy('status')
+                ->pluck('count', 'status')
+                ->toArray(),
+            'tasks_by_month' => ProductionTask::selectRaw('TO_CHAR(created_at, \'YYYY-MM\') as month, COUNT(*) as count')
+                ->groupBy('month')
+                ->orderBy('month')
+                ->pluck('count', 'month')
+                ->toArray(),
+        ];
+    }
     public function updateComponents(int $taskId, array $componentsData): bool {
         return DB::transaction(function () use ($taskId, $componentsData) {
             $task = ProductionTask::lockForUpdate()->findOrFail($taskId);

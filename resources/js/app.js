@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
+import { createPinia } from 'pinia'
 import App from './App.vue'
 import axios from 'axios'
 
@@ -16,6 +17,7 @@ import Orders from './components/Orders.vue'
 import Products from './components/Products.vue'
 import ProductionTasks from './components/ProductionTasks.vue'
 import AdminPanel from './components/AdminPanel.vue'
+import Statistics from './components/Statistics.vue'
 
 const routes = [
     { path: '/', component: Dashboard, name: 'dashboard' },
@@ -23,6 +25,7 @@ const routes = [
     { path: '/products', component: Products, name: 'products' },
     { path: '/production-tasks', component: ProductionTasks, name: 'production-tasks' },
     { path: '/admin', component: AdminPanel, name: 'admin' },
+    { path: '/statistics', component: Statistics, name: 'statistics' },
 ]
 
 const router = createRouter({

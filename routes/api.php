@@ -77,6 +77,7 @@ Route::middleware('web')->group(function () {
         Route::delete('/components/{componentId}', [ProductionTaskController::class, 'removeComponent'])->middleware('role:admin,master');
         Route::delete('/components/{componentId}/with-lock', [ProductionTaskController::class, 'removeComponentWithLock'])->middleware('role:admin,master');
         Route::get('/status/{status}', [ProductionTaskController::class, 'getTasksByStatus']);
+        Route::get('/statistics', [ProductionTaskController::class, 'statistics']);
     });
     Route::prefix('companies')->group(function () {
         Route::get('/', [CompanyController::class, 'index']);

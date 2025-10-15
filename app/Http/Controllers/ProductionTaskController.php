@@ -271,13 +271,29 @@ class ProductionTaskController extends Controller
             $result = $this->taskService->removeComponentWithLock($componentId);
             return response()->json([
                 'success' => $result,
-                'message' => $result ? 'Компонент удален успешно' : 'Ошибка удаления компонента'
+                'message' => $result ? 'Компонент удален' : 'Ошибка удаления'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
             ], 400);
+        }
+    }
+    public function statistics(): JsonResponse
+    {
+        try {
+            $statistics = $this->taskService->getTaskStatistics();
+            return response()->json([
+                'success' => true,
+                'data' => $statistics
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения статистики заданий',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
     public function updateComponents(Request $request, int $taskId): JsonResponse

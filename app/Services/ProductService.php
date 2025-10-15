@@ -65,7 +65,8 @@ class ProductService
     public function getProductStatistics(): array
     {
         $cacheKey = 'products:statistics';
-        return $this->cacheService->remember($cacheKey, function () {
+        $tags = ['products', 'statistics'];
+        return $this->cacheService->rememberWithTags($cacheKey, $tags, function () {
             return [
                 'total_products' => $this->model->count(),
                 'products_by_type' => $this->model->selectRaw('type, COUNT(*) as count')
@@ -137,12 +138,13 @@ class ProductService
         if ($productId) {
             $this->cacheService->forget("product:{$productId}");
         }
-        $this->cacheService->flushPattern('products:*');
+        $tags = ['products', 'statistics'];
+        $this->cacheService->flushByTags($tags);
     }
     public function clearProductCache(): void
     {
-        $this->cacheService->flushPattern('products:*');
-        $this->cacheService->flushPattern('product:*');
+        $tags = ['products', 'statistics'];
+        $this->cacheService->flushByTags($tags);
     }
     public function getProductsForSelect(): array
     {

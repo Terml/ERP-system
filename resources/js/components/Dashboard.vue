@@ -8,10 +8,10 @@
     <div class="quick-actions">
       <h3>Быстрые действия</h3>
       <div class="actions-grid">
-        <a href="#" class="action-btn" @click.prevent="createOrder">
+        <a v-if="canCreateOrder" href="#" class="action-btn" @click.prevent="createOrder">
           <span class="action-text">Создать заказ</span>
         </a>
-        <a href="#" class="action-btn" @click.prevent="createTask">
+        <a v-if="canCreateTask" href="#" class="action-btn" @click.prevent="createTask">
           <span class="action-text">Создать задание</span>
         </a>
         <a href="#" class="action-btn" @click.prevent="generateReport">
@@ -98,12 +98,22 @@ export default {
     }
 
     const viewStatistics = () => {
-      router.push('/products')
+      router.push('/statistics')
     }
 
     const openSettings = () => {
       router.push('/admin')
     }
+
+    const canCreateOrder = computed(() => {
+      if (!user.value?.roles) return false
+      return user.value.roles.some(role => ['admin', 'manager'].includes(role.role))
+    })
+
+    const canCreateTask = computed(() => {
+      if (!user.value?.roles) return false
+      return user.value.roles.some(role => ['admin', 'dispatcher'].includes(role.role))
+    })
 
     onMounted(async () => {
       await Promise.all([
@@ -121,119 +131,10 @@ export default {
       generateReport,
       viewDocuments,
       viewStatistics,
-      openSettings
+      openSettings,
+      canCreateOrder,
+      canCreateTask
     }
   }
 }
 </script>
-
-<style scoped>
-.dashboard-container {
-  min-height: 100vh;
-  background: #f5f5f5;
-}
-
-.welcome-section {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 30px;
-}
-
-.welcome-title {
-  color: #333;
-  margin: 0 0 10px 0;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.welcome-subtitle {
-  color: #666;
-  margin: 0 0 20px 0;
-  font-size: 16px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.stat-card {
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  text-align: center;
-}
-
-.stat-title {
-  color: #333;
-  margin: 0 0 5px 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.stat-value {
-  color: #667eea;
-  margin: 0;
-  font-size: 32px;
-  font-weight: bold;
-}
-
-.quick-actions {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.quick-actions h3 {
-  color: #333;
-  margin: 0 0 20px 0;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-}
-
-.action-btn {
-  background: #f8f9fa;
-  border: 2px solid #e1e5e9;
-  padding: 15px 20px;
-  border-radius: 8px;
-  text-decoration: none;
-  color: #333;
-  text-align: center;
-  transition: all 0.3s ease;
-  display: block;
-  cursor: pointer;
-}
-
-.action-btn:hover {
-  background: #e9ecef;
-  border-color: #667eea;
-  color: #667eea;
-}
-
-.action-text {
-  font-weight: 500;
-  font-size: 14px;
-}
-
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .actions-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
